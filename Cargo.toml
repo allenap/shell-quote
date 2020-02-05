@@ -1,5 +1,6 @@
 [package]
 name = "shell-quote"
+description = "A Rust library for shell quoting strings, e.g. for interpolating into a Bash script. This is not as simple as most people think!"
 version = "0.1.0"
 authors = ["Gavin Panella <gavinpanella@gmail.com>"]
 license = "Apache-2.0"
