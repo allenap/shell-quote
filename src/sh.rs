@@ -1,4 +1,4 @@
-//! Quote strings for use with Bash, the GNU Bourne-Again Shell.
+//! Quote strings for use with `/bin/sh`.
 
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
@@ -9,7 +9,7 @@ use crate::scan::Char;
 ///
 /// This will return one of the following:
 /// - The string as-is, if no escaping is necessary.
-/// - An [ANSI-C escaped string][ansi-c-quoting], like `$'foo bar'`.
+/// - An ANSI-C-like escaped string, like `'foo bar'`.
 ///
 /// See [`escape_into`][] for a variant that extends an existing `Vec` instead
 /// of allocating a new one.
@@ -19,49 +19,46 @@ use crate::scan::Char;
 /// # Examples
 ///
 /// ```
-/// # use shell_quote::bash;
-/// assert_eq!(bash::escape("foobar"), b"foobar");
-/// assert_eq!(bash::escape("foo bar"), b"$'foo bar'");
+/// # use shell_quote::sh;
+/// assert_eq!(sh::escape("foobar"), b"foobar");
+/// assert_eq!(sh::escape("foo bar"), b"'foo bar'");
 /// ```
 ///
 /// # Notes
 ///
-/// From bash(1):
+/// The following escapes seem to be "okay":
 ///
-///   Words of the form $'string' are treated specially. The word expands to
-///   string, with backslash- escaped characters replaced as specified by the
-///   ANSI C standard. Backslash escape sequences, if present, are decoded as
-///   follows:
+/// ```text
+/// \a     alert (bell)
+/// \b     backspace
+/// \f     form feed
+/// \n     new line
+/// \r     carriage return
+/// \t     horizontal tab
+/// \v     vertical tab
+/// \\     backslash
+/// \nnn   the eight-bit character whose value is the octal value nnn
+/// ```
 ///
-///   ```text
-///   \a     alert (bell)
-///   \b     backspace
-///   \e     an escape character
-///   \f     form feed
-///   \n     new line
-///   \r     carriage return
-///   \t     horizontal tab
-///   \v     vertical tab
-///   \\     backslash
-///   \'     single quote
-///   \nnn   the eight-bit character whose value is the
-///          octal value nnn (one to three digits)
-///   \xHH   the eight-bit character whose value is the
-///          hexadecimal value HH (one or two hex digits)
-///   \cx    a control-x character
-///   ```
+/// I wasn't able to find any definitive statement of exactly how Bourne Shell
+/// strings should be escaped, mainly because "Bourne Shell" or `/bin/sh` can
+/// refer to many different pieces of software: Bash has a Bourne Shell mode,
+/// `/bin/sh` on Ubuntu is actually Dash, and on macOS 12.3 (and later, and
+/// possibly earlier) all bets are off:
 ///
-/// You can see that Bash allows (maybe only in newer versions?) for non-ASCII
-/// Unicode characters with `\uHHHH` and `\UXXXXXXXX` syntax, but we avoid this
-/// and work only with bytes. Part of the problem is that it's not clear how
-/// Bash then works with these strings. Does it encode these characters into
-/// bytes according to the user's current locale? Are strings in Bash now
-/// natively Unicode?
+/// > `sh` is a POSIX-compliant command interpreter (shell). It is implemented
+/// > by re-execing as either `bash`(1), `dash`(1), or `zsh`(1) as determined by
+/// > the symbolic link located at `/private/var/select/sh`. If
+/// > `/private/var/select/sh` does not exist or does not point to a valid
+/// > shell, `sh` will use one of the supported shells.
 ///
-/// For now it's up to the caller to figure out encoding. A significant use case
-/// for this code is to escape filenames into scripts, and on *nix variants I
-/// understand that filenames are essentially arrays of bytes, even if the OS
-/// adds some normalisation and case-insensitivity on top.
+/// The code in this module sticks to escape sequences that I consider
+/// "standard" by a heuristic known only to me. It operates byte by byte, making
+/// no special allowances for multi-byte character sets. In other words, it's up
+/// to the caller to figure out encoding for non-ASCII characters. A significant
+/// use case for this code is to escape filenames into scripts, and on *nix
+/// variants I understand that filenames are essentially arrays of bytes, even
+/// if the OS adds some normalisation and case-insensitivity on top.
 ///
 /// If you have some expertise in this area I would love to hear from you.
 ///
@@ -69,17 +66,14 @@ use crate::scan::Char;
 /// regular Rust strings, `PathBuf`, and so on. For a regular Rust string it
 /// will be quoted byte for byte
 ///
-/// [ansi-c-quoting]:
-///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
-///
 pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
     let sin = s.into().into_vec();
     if let Some(esc) = escape_prepare(&sin) {
         // Maybe pointless optimisation, but here we calculate the memory we need to
         // avoid reallocations as we construct the output string. Since we now know
-        // we're going to use Bash's $'...' string notation, we also add 3 bytes.
+        // we're going to use single quotes, we also add 2 bytes.
         let size: usize = esc.iter().map(escape_size).sum();
-        let mut sout = Vec::with_capacity(size + 3);
+        let mut sout = Vec::with_capacity(size + 2);
         escape_chars(esc, &mut sout); // Do the work.
         sout
     } else {
@@ -96,22 +90,22 @@ pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
 /// # Examples
 ///
 /// ```
-/// # use shell_quote::bash;
+/// # use shell_quote::sh;
 /// let mut buf = Vec::with_capacity(128);
-/// bash::escape_into("foobar", &mut buf);
+/// sh::escape_into("foobar", &mut buf);
 /// buf.push(b' ');  // Add a space.
-/// bash::escape_into("foo bar", &mut buf);
-/// assert_eq!(buf, b"foobar $'foo bar'");
+/// sh::escape_into("foo bar", &mut buf);
+/// assert_eq!(buf, b"foobar 'foo bar'");
 /// ```
 ///
 pub fn escape_into<T: Into<OsString>>(s: T, sout: &mut Vec<u8>) {
     let sin = s.into().into_vec();
     if let Some(esc) = escape_prepare(&sin) {
-        // Maybe pointless optimisation, but here we calculate the memory we need to
-        // avoid reallocations as we construct the output string. Since we now know
-        // we're going to use Bash's $'...' string notation, we also add 3 bytes.
+        // Maybe pointless optimisation, but here we calculate the memory we
+        // need to avoid reallocations as we construct the output string. Since
+        // we now know we're going to use single quotes, we also add 2 bytes.
         let size: usize = esc.iter().map(escape_size).sum();
-        sout.reserve(size + 3);
+        sout.reserve(size + 2);
         escape_chars(esc, sout); // Do the work.
     } else {
         sout.extend(sin);
@@ -130,22 +124,22 @@ fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    // Push a Bash-style $'...' escaped string into `sout`.
-    sout.extend(b"$'");
+    // Push a Bourne-style '...' escaped string into `sout`.
+    sout.extend(b"'");
     for mode in esc {
         use Char::*;
         match mode {
             Bell => sout.extend(b"\\a"),
             Backspace => sout.extend(b"\\b"),
-            Escape => sout.extend(b"\\e"),
+            Escape => sout.extend(b"\\033"),
             FormFeed => sout.extend(b"\\f"),
             NewLine => sout.extend(b"\\n"),
             CarriageReturn => sout.extend(b"\\r"),
             HorizontalTab => sout.extend(b"\\t"),
             VerticalTab => sout.extend(b"\\v"),
             Backslash => sout.extend(b"\\\\"),
-            SingleQuote => sout.extend(b"\\'"),
-            ByValue(ch) => sout.extend(format!("\\x{:02X}", ch).bytes()),
+            SingleQuote => sout.extend(b"\\047"),
+            ByValue(ch) => sout.extend(format!("\\{:03o}", ch).bytes()),
             Literal(ch) => sout.push(ch),
             Quoted(ch) => sout.push(ch),
         }
@@ -158,14 +152,14 @@ fn escape_size(char: &Char) -> usize {
     match char {
         Bell => 2,
         Backspace => 2,
-        Escape => 2,
+        Escape => 4,
         FormFeed => 2,
         NewLine => 2,
         CarriageReturn => 2,
         HorizontalTab => 2,
         VerticalTab => 2,
         Backslash => 2,
-        SingleQuote => 2,
+        SingleQuote => 4,
         ByValue(_) => 4,
         Literal(_) => 1,
         Quoted(_) => 1,
@@ -200,21 +194,23 @@ mod tests {
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(escape("-_=/,.+"), b"$'-_=/,.+'");
+        assert_eq!(escape("-_=/,.+"), b"'-_=/,.+'");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(escape(r#"woo"wah""#), br#"$'woo"wah"'"#);
+        assert_eq!(escape(r#"woo'wah""#), br#"'woo\047wah"'"#);
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn test_control_characters() {
-        assert_eq!(escape(&"\x07"), b"$'\\a'");
-        assert_eq!(escape(&"\x00"), b"$'\\x00'");
-        assert_eq!(escape(&"\x06"), b"$'\\x06'");
-        assert_eq!(escape(&"\x7F"), b"$'\\x7F'");
+        assert_eq!(escape(&"\x07"), b"'\\a'");
+        assert_eq!(escape(&"\x00"), b"'\\000'");
+        assert_eq!(escape(&"\x06"), b"'\\006'");
+        assert_eq!(escape(&"\x7F"), b"'\\177'");
+        assert_eq!(escape(&"\x7F"), b"'\\177'");
+        assert_eq!(escape(&"\x1B"), b"'\\033'");
     }
 
     #[test]
@@ -228,6 +224,6 @@ mod tests {
     fn test_escape_into_with_escapes() {
         let mut buffer = Vec::new();
         escape_into("-_=/,.+", &mut buffer);
-        assert_eq!(buffer, b"$'-_=/,.+'");
+        assert_eq!(buffer, b"'-_=/,.+'");
     }
 }
