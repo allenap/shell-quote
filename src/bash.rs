@@ -11,6 +11,11 @@ use crate::scan::Char;
 /// - The string as-is, if no escaping is necessary.
 /// - An [ANSI-C escaped string][ansi-c-quoting], like `$'foo bar'`.
 ///
+/// **NOTE:** It is _possible_ to encode NUL in this syntax as `$'\x00'`, but
+/// Bash appears to then truncate the rest of the string after that point,
+/// likely because NUL is the C string terminator. This seems like a **bug** in
+/// Bash.
+///
 /// See [`escape_into`][] for a variant that extends an existing `Vec` instead
 /// of allocating a new one.
 ///
@@ -145,7 +150,8 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             VerticalTab => sout.extend(b"\\v"),
             Backslash => sout.extend(b"\\\\"),
             SingleQuote => sout.extend(b"\\'"),
-            ByValue(ch) => sout.extend(format!("\\x{:02X}", ch).bytes()),
+            ByValue(ch) if ch < 0o177 => sout.extend(format!("\\x{:02X}", ch).bytes()),
+            ByValue(ch) => sout.push(ch),
             Literal(ch) => sout.push(ch),
             Quoted(ch) => sout.push(ch),
         }
@@ -174,6 +180,11 @@ fn escape_size(char: &Char) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+    use std::os::unix::prelude::OsStringExt;
+
+    use crate::find_bins;
+
     use super::escape;
     use super::escape_into;
 
@@ -211,10 +222,11 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_control_characters() {
+        assert_eq!(escape(&"\x00"), b"$'\\x00'");
         assert_eq!(escape(&"\x07"), b"$'\\a'");
         assert_eq!(escape(&"\x00"), b"$'\\x00'");
         assert_eq!(escape(&"\x06"), b"$'\\x06'");
-        assert_eq!(escape(&"\x7F"), b"$'\\x7F'");
+        assert_eq!(escape(&"\x7F"), b"$'\x7F'");
     }
 
     #[test]
@@ -229,5 +241,22 @@ mod tests {
         let mut buffer = Vec::new();
         escape_into("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"$'-_=/,.+'");
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        use std::process::Command;
+        let mut script = b"echo -n ".to_vec();
+        // It doesn't seem possible to roundtrip NUL, probably because it is the
+        // string terminator character in C. To me this seems like a bug in Bash.
+        let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
+        escape_into(&string, &mut script);
+        let script = OsString::from_vec(script);
+        // Test with every version of `bash` we find on `PATH`.
+        for bin in find_bins("bash") {
+            let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
+            let result = OsString::from_vec(output.stdout);
+            assert_eq!(result, string);
+        }
     }
 }

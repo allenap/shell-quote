@@ -139,7 +139,8 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             VerticalTab => sout.extend(b"\\v"),
             Backslash => sout.extend(b"\\\\"),
             SingleQuote => sout.extend(b"\\047"),
-            ByValue(ch) => sout.extend(format!("\\{:03o}", ch).bytes()),
+            ByValue(ch) if ch < 0o177 => sout.extend(format!("\\{:03o}", ch).bytes()),
+            ByValue(ch) => sout.push(ch),
             Literal(ch) => sout.push(ch),
             Quoted(ch) => sout.push(ch),
         }
@@ -168,6 +169,11 @@ fn escape_size(char: &Char) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+    use std::os::unix::prelude::OsStringExt;
+
+    use crate::find_bins;
+
     use super::escape;
     use super::escape_into;
 
@@ -208,8 +214,7 @@ mod tests {
         assert_eq!(escape(&"\x07"), b"'\\a'");
         assert_eq!(escape(&"\x00"), b"'\\000'");
         assert_eq!(escape(&"\x06"), b"'\\006'");
-        assert_eq!(escape(&"\x7F"), b"'\\177'");
-        assert_eq!(escape(&"\x7F"), b"'\\177'");
+        assert_eq!(escape(&"\x7F"), b"'\x7F'");
         assert_eq!(escape(&"\x1B"), b"'\\033'");
     }
 
@@ -225,5 +230,23 @@ mod tests {
         let mut buffer = Vec::new();
         escape_into("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"'-_=/,.+'");
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        use std::process::Command;
+        // In Bash it doesn't seem possible to roundtrip NUL, but in the Bourne
+        // shell, or whatever is masquerading as `sh`, it seems to be fine.
+        let string: OsString = OsString::from_vec((u8::MIN..=u8::MAX).collect());
+        let mut script = b"echo ".to_vec();
+        escape_into(&string, &mut script);
+        let script = OsString::from_vec(script);
+        for bin in find_bins("sh") {
+            let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
+            let mut result = output.stdout;
+            result.resize(result.len() - 1, 0); // Remove trailing newline.
+            let result = OsString::from_vec(result);
+            assert_eq!(result, string);
+        }
     }
 }
