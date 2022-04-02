@@ -1,4 +1,4 @@
-# shell-escape
+# shell-quote
 
 This escapes strings in a way that they can be inserted into shell scripts
 without the risk that they're interpreted as, say, multiple arguments (like with
