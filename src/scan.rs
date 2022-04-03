@@ -13,13 +13,14 @@ pub(crate) enum Char {
     CarriageReturn,
     HorizontalTab,
     VerticalTab,
+    Control(u8),
     Backslash,
     SingleQuote,
     DoubleQuote,
     Delete,
-    ByValue(u8),
-    Literal(u8),
-    Quoted(u8),
+    PrintableInert(u8),
+    Printable(u8),
+    Extended(u8),
 }
 
 impl Char {
@@ -27,8 +28,8 @@ impl Char {
         let ch = *ch.borrow();
         use Char::*;
         match ch {
-            // Characters that frequently have dedicated backslash sequences
-            // when quoted or otherwise need some special treatment.
+            // ASCII control characters that frequently have dedicated backslash
+            // sequences when quoted.
             BEL => Bell,
             BS => Backspace,
             ESC => Escape,
@@ -37,32 +38,35 @@ impl Char {
             CR => CarriageReturn,
             TAB => HorizontalTab,
             VT => VerticalTab,
+
+            // ASCII control characters, the rest.
+            0x00..=0x06 | 0x0E..=0x1A | 0x1C..=0x1F => Control(ch),
+
+            // ASCII printable characters that can have dedicated backslash
+            // sequences when quoted or otherwise need some special treatment.
             b'\\' => Backslash,
             b'\'' => SingleQuote,
             b'\"' => DoubleQuote,
             DEL => Delete,
 
-            // ASCII letters, numbers, and "safe" punctuation.
-            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => Literal(ch),
-            b',' | b'.' | b'/' | b'_' | b'-' => Literal(ch),
+            // ASCII printable letters, numbers, and "safe" punctuation.
+            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => PrintableInert(ch),
+            b',' | b'.' | b'/' | b'_' | b'-' => PrintableInert(ch),
 
             // ASCII punctuation which can have significance in the shell.
-            b'|' | b'&' | b';' | b'(' | b')' | b'<' | b'>' => Quoted(ch),
-            b' ' | b'?' | b'[' | b']' | b'{' | b'}' | b'`' => Quoted(ch),
-            b'~' | b'!' | b'$' | b'@' | b'+' | b'=' | b'*' => Quoted(ch),
-            b'%' | b'#' | b':' | b'^' => Quoted(ch),
+            b'|' | b'&' | b';' | b'(' | b')' | b'<' | b'>' => Printable(ch),
+            b' ' | b'?' | b'[' | b']' | b'{' | b'}' | b'`' => Printable(ch),
+            b'~' | b'!' | b'$' | b'@' | b'+' | b'=' | b'*' => Printable(ch),
+            b'%' | b'#' | b':' | b'^' => Printable(ch),
 
-            // Other ASCII control characters.
-            0x00..=0x06 | 0x0E..=0x1A | 0x1C..=0x1F => ByValue(ch),
-
-            // Extended ASCII, or high bytes.
-            0x80..=0xff => ByValue(ch),
+            // ASCII extended characters, or high bytes.
+            0x80..=0xff => Extended(ch),
         }
     }
 
     #[inline]
-    pub fn is_literal(&self) -> bool {
-        matches!(self, Char::Literal(_))
+    pub fn is_inert(&self) -> bool {
+        matches!(self, Char::PrintableInert(_))
     }
 }
 

@@ -116,7 +116,7 @@ fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
     let esc: Vec<_> = sin.iter().map(Char::from).collect();
     // An optimisation: if the string only contains "safe" characters we can
     // avoid further work.
-    if esc.iter().all(Char::is_literal) {
+    if esc.iter().all(Char::is_inert) {
         None
     } else {
         Some(esc)
@@ -137,14 +137,14 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             CarriageReturn => sout.extend(b"\\r"),
             HorizontalTab => sout.extend(b"\\t"),
             VerticalTab => sout.extend(b"\\v"),
+            Control(ch) => sout.extend(format!("\\{:03o}", ch).bytes()),
             Backslash => sout.extend(b"\\\\"),
             SingleQuote => sout.extend(b"\\047"),
             DoubleQuote => sout.extend(b"\""),
             Delete => sout.push(0x7F),
-            ByValue(ch) if ch < 0o177 => sout.extend(format!("\\{:03o}", ch).bytes()),
-            ByValue(ch) => sout.push(ch),
-            Literal(ch) => sout.push(ch),
-            Quoted(ch) => sout.push(ch),
+            PrintableInert(ch) => sout.push(ch),
+            Printable(ch) => sout.push(ch),
+            Extended(ch) => sout.push(ch),
         }
     }
     sout.push(b'\'');
@@ -161,13 +161,14 @@ fn escape_size(char: &Char) -> usize {
         CarriageReturn => 2,
         HorizontalTab => 2,
         VerticalTab => 2,
+        Control(_) => 4,
         Backslash => 2,
         SingleQuote => 4,
         DoubleQuote => 1,
         Delete => 4,
-        ByValue(_) => 4,
-        Literal(_) => 1,
-        Quoted(_) => 1,
+        PrintableInert(_) => 1,
+        Printable(_) => 1,
+        Extended(_) => 4,
     }
 }
 
