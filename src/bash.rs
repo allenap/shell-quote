@@ -150,8 +150,7 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             VerticalTab => sout.extend(b"\\v"),
             Backslash => sout.extend(b"\\\\"),
             SingleQuote => sout.extend(b"\\'"),
-            ByValue(ch) if ch < 0o177 => sout.extend(format!("\\x{:02X}", ch).bytes()),
-            ByValue(ch) => sout.push(ch),
+            ByValue(ch) => sout.extend(format!("\\x{:02X}", ch).bytes()),
             Literal(ch) => sout.push(ch),
             Quoted(ch) => sout.push(ch),
         }
@@ -226,7 +225,7 @@ mod tests {
         assert_eq!(escape(&"\x07"), b"$'\\a'");
         assert_eq!(escape(&"\x00"), b"$'\\x00'");
         assert_eq!(escape(&"\x06"), b"$'\\x06'");
-        assert_eq!(escape(&"\x7F"), b"$'\x7F'");
+        assert_eq!(escape(&"\x7F"), b"$'\\x7F'");
     }
 
     #[test]
