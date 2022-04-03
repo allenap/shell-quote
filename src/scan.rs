@@ -15,6 +15,8 @@ pub(crate) enum Char {
     VerticalTab,
     Backslash,
     SingleQuote,
+    DoubleQuote,
+    Delete,
     ByValue(u8),
     Literal(u8),
     Quoted(u8),
@@ -25,7 +27,8 @@ impl Char {
         let ch = *ch.borrow();
         use Char::*;
         match ch {
-            // Backslash sequences.
+            // Characters that frequently have dedicated backslash sequences
+            // when quoted or otherwise need some special treatment.
             BEL => Bell,
             BS => Backspace,
             ESC => Escape,
@@ -36,6 +39,8 @@ impl Char {
             VT => VerticalTab,
             b'\\' => Backslash,
             b'\'' => SingleQuote,
+            b'\"' => DoubleQuote,
+            DEL => Delete,
 
             // ASCII letters, numbers, and "safe" punctuation.
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => Literal(ch),
@@ -44,13 +49,13 @@ impl Char {
             // ASCII punctuation which can have significance in the shell.
             b'|' | b'&' | b';' | b'(' | b')' | b'<' | b'>' => Quoted(ch),
             b' ' | b'?' | b'[' | b']' | b'{' | b'}' | b'`' => Quoted(ch),
-            b'~' | b'!' | b'$' | b'@' | b'+' | b'=' => Quoted(ch),
-            b'*' | b'"' | b'%' | b'#' | b':' | b'^' => Quoted(ch),
+            b'~' | b'!' | b'$' | b'@' | b'+' | b'=' | b'*' => Quoted(ch),
+            b'%' | b'#' | b':' | b'^' => Quoted(ch),
 
-            // Other control characers.
-            0x00..=0x06 | 0x0E..=0x1A | 0x1C..=0x1F | 0x7f => ByValue(ch),
+            // Other ASCII control characters.
+            0x00..=0x06 | 0x0E..=0x1A | 0x1C..=0x1F => ByValue(ch),
 
-            // High bytes.
+            // Extended ASCII, or high bytes.
             0x80..=0xff => ByValue(ch),
         }
     }
@@ -69,3 +74,4 @@ const VT: u8 = 0x0B; // -> \v
 const FF: u8 = 0x0C; // -> \f
 const CR: u8 = 0x0D; // -> \r
 const ESC: u8 = 0x1B; // -> \e
+const DEL: u8 = 0x7F;
