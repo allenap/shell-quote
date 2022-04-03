@@ -104,6 +104,14 @@ pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
     }
 }
 
+/// Escape a string of *bytes* into a new `OsString`.
+///
+/// Same as [`escape`], but returns an `OsString`.
+///
+pub fn quote<T: Into<OsString>>(s: T) -> OsString {
+    OsString::from_vec(escape(s))
+}
+
 /// Escape a string of *bytes* into an existing `Vec<u8>`.
 ///
 /// See [`escape`][] for more details.
@@ -202,8 +210,7 @@ mod tests {
 
     use crate::find_bins;
 
-    use super::escape;
-    use super::escape_into;
+    use super::{escape, escape_into, quote};
 
     #[test]
     fn test_lowercase_ascii() {
@@ -275,5 +282,13 @@ mod tests {
             let result = OsString::from_vec(output.stdout);
             assert_eq!(result, string);
         }
+    }
+
+    #[test]
+    fn test_quote() {
+        assert_eq!(
+            quote("abcdefghijklmnopqrstuvwxyz"),
+            OsString::from("abcdefghijklmnopqrstuvwxyz"),
+        );
     }
 }
