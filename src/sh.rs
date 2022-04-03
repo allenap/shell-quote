@@ -23,7 +23,7 @@
 //! possibly earlier) all bets are off:
 //!
 //! > `sh` is a POSIX-compliant command interpreter (shell). It is implemented
-//! > by re-execing as either `bash`(1), `dash`(1), or `zsh`(1) as determined by
+//! > by re-execing as either `bash(1)`, `dash(1)`, or `zsh(1)` as determined by
 //! > the symbolic link located at `/private/var/select/sh`. If
 //! > `/private/var/select/sh` does not exist or does not point to a valid
 //! > shell, `sh` will use one of the supported shells.
