@@ -1,5 +1,6 @@
-//! Scanner for control characters and shell metacharacters. It's presently
-//! geared towards Bash and `/bin/sh`.
+//! Scanner for ASCII control codes, shell metacharacters, printable characters,
+//! and extended codes, i.e. classify each byte in a stream according to where
+//! it appears in extended ASCII.
 
 use std::borrow::Borrow;
 

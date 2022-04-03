@@ -3,7 +3,7 @@
 pub mod bash;
 pub mod sh;
 
-mod scan;
+mod ascii;
 
 #[cfg(test)]
 pub(crate) fn find_bins<P: AsRef<std::path::Path>>(name: P) -> Vec<std::path::PathBuf> {

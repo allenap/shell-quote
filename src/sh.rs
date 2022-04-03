@@ -3,7 +3,7 @@
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 
-use crate::scan::Char;
+use crate::ascii::Char;
 
 /// Escape a string of *bytes* into a new `Vec<u8>`.
 ///
