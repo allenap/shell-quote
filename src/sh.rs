@@ -125,9 +125,11 @@ pub fn escape_into<T: Into<OsString>>(s: T, sout: &mut Vec<u8>) {
 
 fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
     let esc: Vec<_> = sin.iter().map(Char::from).collect();
-    // An optimisation: if the string only contains "safe" characters we can
-    // avoid further work.
-    if esc.iter().all(Char::is_inert) {
+    // An optimisation: if the string is not empty and contains only "safe"
+    // characters we can avoid further work.
+    if esc.is_empty() {
+        Some(esc)
+    } else if esc.iter().all(Char::is_inert) {
         None
     } else {
         Some(esc)
@@ -216,6 +218,11 @@ mod tests {
     #[test]
     fn test_punctuation() {
         assert_eq!(escape("-_=/,.+"), b"'-_=/,.+'");
+    }
+
+    #[test]
+    fn test_empty_string() {
+        assert_eq!(escape(""), b"''");
     }
 
     #[test]
