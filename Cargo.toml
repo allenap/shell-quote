@@ -1,5 +1,5 @@
 [package]
-authors = ["Gavin Panella <gavinpanella@gmail.com>"]
+authors = ["Gavin Panella <gavin@allenap.me>"]
 categories = ["encoding", "filesystem"]
 description = "A Rust library for shell-quoting strings, e.g. for interpolating into a Bash script."
 edition = "2021"
