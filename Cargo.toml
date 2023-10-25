@@ -12,3 +12,14 @@ repository = "https://github.com/allenap/shell-quote"
 version = "0.3.1"
 
 [dependencies]
+
+[dev-dependencies]
+criterion = { version = "^0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "bash"
+harness = false
+
+[[bench]]
+name = "sh"
+harness = false
