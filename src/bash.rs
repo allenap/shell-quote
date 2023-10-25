@@ -91,16 +91,19 @@ use crate::ascii::Char;
 ///
 pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
     let sin = s.into().into_vec();
-    if let Some(esc) = escape_prepare(&sin) {
-        // Maybe pointless optimisation, but here we calculate the memory we need to
-        // avoid reallocations as we construct the output string. Since we now know
-        // we're going to use Bash's $'...' string notation, we also add 3 bytes.
-        let size: usize = esc.iter().map(escape_size).sum();
-        let mut sout = Vec::with_capacity(size + 3);
-        escape_chars(esc, &mut sout); // Do the work.
-        sout
-    } else {
-        sin
+    match escape_prepare(&sin) {
+        Prepared::Empty => vec![b'\'', b'\''],
+        Prepared::Inert => sin,
+        Prepared::Escape(esc) => {
+            // Maybe pointless optimisation, but here we calculate the memory we
+            // need to avoid reallocations as we construct the output string.
+            // Since we know we're going to use Bash's $'...' string notation,
+            // we also add 3 bytes.
+            let size: usize = esc.iter().map(escape_size).sum();
+            let mut sout = Vec::with_capacity(size + 3);
+            escape_chars(esc, &mut sout); // Do the work.
+            sout
+        }
     }
 }
 
@@ -131,28 +134,37 @@ pub fn quote<T: Into<OsString>>(s: T) -> OsString {
 ///
 pub fn escape_into<T: Into<OsString>>(s: T, sout: &mut Vec<u8>) {
     let sin = s.into().into_vec();
-    if let Some(esc) = escape_prepare(&sin) {
-        // Maybe pointless optimisation, but here we calculate the memory we need to
-        // avoid reallocations as we construct the output string. Since we now know
-        // we're going to use Bash's $'...' string notation, we also add 3 bytes.
-        let size: usize = esc.iter().map(escape_size).sum();
-        sout.reserve(size + 3);
-        escape_chars(esc, sout); // Do the work.
-    } else {
-        sout.extend(sin);
+    match escape_prepare(&sin) {
+        Prepared::Empty => sout.extend(b"''"),
+        Prepared::Inert => sout.extend(sin),
+        Prepared::Escape(esc) => {
+            // Maybe pointless optimisation, but here we calculate the memory we
+            // need to avoid reallocations as we construct the output string.
+            // Since we know we're going to use Bash's $'...' string notation,
+            // we also add 3 bytes.
+            let size: usize = esc.iter().map(escape_size).sum();
+            sout.reserve(size + 3);
+            escape_chars(esc, sout); // Do the work.
+        }
     }
 }
 
-fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
+enum Prepared {
+    Empty,
+    Inert,
+    Escape(Vec<Char>),
+}
+
+fn escape_prepare(sin: &[u8]) -> Prepared {
     let esc: Vec<_> = sin.iter().map(Char::from).collect();
     // An optimisation: if the string is not empty and contains only "safe"
     // characters we can avoid further work.
     if esc.is_empty() {
-        Some(esc)
+        Prepared::Empty
     } else if esc.iter().all(Char::is_inert) {
-        None
+        Prepared::Inert
     } else {
-        Some(esc)
+        Prepared::Escape(esc)
     }
 }
 
@@ -242,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(escape(""), b"$''");
+        assert_eq!(escape(""), b"''");
     }
 
     #[test]
