@@ -12,7 +12,7 @@ pub(crate) fn find_bins<P: AsRef<std::path::Path>>(name: P) -> Vec<std::path::Pa
         Some(path) => {
             // Find every `name` file in `path`, return as absolute paths.
             std::env::split_paths(&path)
-                .map(|bindir| bindir.join(&name))
+                .map(|bindir| bindir.join(name))
                 .filter(|bin| bin.exists())
                 .collect()
         }

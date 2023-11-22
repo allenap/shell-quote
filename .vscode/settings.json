@@ -2,8 +2,10 @@
     "cSpell.language": "en,en-GB",
     "cSpell.words": [
         "bindir",
+        "execing",
         "metacharacters",
         "POSIX",
-        "sout"
+        "sout",
+        "UXXXXXXXX"
     ]
 }

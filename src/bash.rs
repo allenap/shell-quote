@@ -263,13 +263,12 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn test_control_characters() {
-        assert_eq!(escape(&"\x00"), b"$'\\x00'");
-        assert_eq!(escape(&"\x07"), b"$'\\a'");
-        assert_eq!(escape(&"\x00"), b"$'\\x00'");
-        assert_eq!(escape(&"\x06"), b"$'\\x06'");
-        assert_eq!(escape(&"\x7F"), b"$'\\x7F'");
+        assert_eq!(escape("\x00"), b"$'\\x00'");
+        assert_eq!(escape("\x07"), b"$'\\a'");
+        assert_eq!(escape("\x00"), b"$'\\x00'");
+        assert_eq!(escape("\x06"), b"$'\\x06'");
+        assert_eq!(escape("\x7F"), b"$'\\x7F'");
     }
 
     #[test]
