@@ -47,6 +47,18 @@
 
 use crate::ascii::Char;
 
+pub struct Sh;
+
+impl super::Quoter for Sh {
+    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+        quote(s)
+    }
+
+    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+        quote_into(s, sout)
+    }
+}
+
 /// Quote a string of *bytes* into a new `Vec<u8>`.
 ///
 /// This will return one of the following:
