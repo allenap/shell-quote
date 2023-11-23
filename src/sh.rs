@@ -1,52 +1,51 @@
-//! Quote strings for use with `/bin/sh`.
-//!
-//! # Notes
-//!
-//! The following escapes seem to be "okay":
-//!
-//! ```text
-//! \a     alert (bell)
-//! \b     backspace
-//! \f     form feed
-//! \n     new line
-//! \r     carriage return
-//! \t     horizontal tab
-//! \v     vertical tab
-//! \\     backslash
-//! \nnn   the eight-bit character whose value is the octal value nnn
-//! ```
-//!
-//! I wasn't able to find any definitive statement of exactly how Bourne Shell
-//! strings should be quoted, mainly because "Bourne Shell" or `/bin/sh` can
-//! refer to many different pieces of software: Bash has a Bourne Shell mode,
-//! `/bin/sh` on Ubuntu is actually Dash, and on macOS 12.3 (and later, and
-//! possibly earlier) all bets are off:
-//!
-//! > `sh` is a POSIX-compliant command interpreter (shell). It is implemented
-//! > by re-execing as either `bash(1)`, `dash(1)`, or `zsh(1)` as determined by
-//! > the symbolic link located at `/private/var/select/sh`. If
-//! > `/private/var/select/sh` does not exist or does not point to a valid
-//! > shell, `sh` will use one of the supported shells.
-//!
-//! ⚠️ In practice, however, bytes between 0x80 and 0xff inclusive **cannot** be
-//! escaped with `\nnn` notation. The shell simply ignores these escapes and
-//! treats `\nnn` as a literal string of 4 characters. Hence, in this module,
-//! these bytes are reproduced as-is within the quoted string output, with no
-//! special escaping.
-//!
-//! The code in this module sticks to escape sequences that I consider
-//! "standard" by a heuristic known only to me. It operates byte by byte, making
-//! no special allowances for multi-byte character sets. In other words, it's up
-//! to the caller to figure out encoding for non-ASCII characters. A significant
-//! use case for this code is to quote filenames into scripts, and on *nix
-//! variants I understand that filenames are essentially arrays of bytes, even
-//! if the OS adds some normalisation and case-insensitivity on top.
-//!
-//! If you have some expertise in this area I would love to hear from you.
-//!
-
 use crate::{ascii::Char, Quoter};
 
+/// Quote byte strings for use with `/bin/sh`.
+///
+/// # Notes
+///
+/// The following escapes seem to be "okay":
+///
+/// ```text
+/// \a     alert (bell)
+/// \b     backspace
+/// \f     form feed
+/// \n     new line
+/// \r     carriage return
+/// \t     horizontal tab
+/// \v     vertical tab
+/// \\     backslash
+/// \nnn   the eight-bit character whose value is the octal value nnn
+/// ```
+///
+/// I wasn't able to find any definitive statement of exactly how Bourne Shell
+/// strings should be quoted, mainly because "Bourne Shell" or `/bin/sh` can
+/// refer to many different pieces of software: Bash has a Bourne Shell mode,
+/// `/bin/sh` on Ubuntu is actually Dash, and on macOS 12.3 (and later, and
+/// possibly earlier) all bets are off:
+///
+/// > `sh` is a POSIX-compliant command interpreter (shell). It is implemented
+/// > by re-execing as either `bash(1)`, `dash(1)`, or `zsh(1)` as determined by
+/// > the symbolic link located at `/private/var/select/sh`. If
+/// > `/private/var/select/sh` does not exist or does not point to a valid
+/// > shell, `sh` will use one of the supported shells.
+///
+/// ⚠️ In practice, however, bytes between 0x80 and 0xff inclusive **cannot** be
+/// escaped with `\nnn` notation. The shell simply ignores these escapes and
+/// treats `\nnn` as a literal string of 4 characters. Hence, in this module,
+/// these bytes are reproduced as-is within the quoted string output, with no
+/// special escaping.
+///
+/// The code in this module sticks to escape sequences that I consider
+/// "standard" by a heuristic known only to me. It operates byte by byte, making
+/// no special allowances for multi-byte character sets. In other words, it's up
+/// to the caller to figure out encoding for non-ASCII characters. A significant
+/// use case for this code is to quote filenames into scripts, and on *nix
+/// variants I understand that filenames are essentially arrays of bytes, even
+/// if the OS adds some normalisation and case-insensitivity on top.
+///
+/// If you have some expertise in this area I would love to hear from you.
+///
 pub struct Sh;
 
 impl Quoter for Sh {
