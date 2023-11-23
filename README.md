@@ -15,3 +15,35 @@ some limitations and caveats.
 
 [shell-escape]: https://github.com/solidsnack/shell-escape
 [gnu-bash]: https://www.gnu.org/software/bash/
+
+## Examples
+
+When quoting using raw bytes it can be convenient to call [`Bash`]'s and
+[`Sh`]'s associated functions directly:
+
+```
+use shell_quote::{Bash, Sh};
+assert_eq!(Bash::quote("foobar"), b"foobar");
+assert_eq!(Sh::quote("foobar"), b"foobar");
+assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
+assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
+```
+
+It's also possible to use the extension trait [`QuoteExt`]:
+
+```
+use shell_quote::{Bash, Sh, QuoteExt};
+assert_eq!(Vec::quoted(Bash, "foo bar"), b"$'foo bar'");
+assert_eq!(Vec::quoted(Sh, "foo bar"), b"'foo bar'");
+```
+
+or, to construct something more elaborate:
+
+```
+use shell_quote::{Bash, QuoteExt};
+let mut script: String = "echo ".into();
+script.push_quoted(Bash, "foo bar");
+script.push_str(" > ");
+script.push_quoted(Bash, "/path/(to)/[output]");
+assert_eq!(script, "echo $'foo bar' > $'/path/(to)/[output]'");
+```
