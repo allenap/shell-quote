@@ -1,4 +1,4 @@
-use crate::{ascii::Char, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, Quoter};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -61,9 +61,22 @@ use crate::{ascii::Char, Quoter};
 /// [ansi-c-quoting]:
 ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
 ///
+#[derive(Debug, Clone, Copy)]
 pub struct Bash;
 
-impl Quoter for Bash {
+impl Quoter for Bash {}
+
+/// Expose [`Quoter`] implementation as default impl too, for convenience.
+impl QuoterSealed for Bash {
+    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+        Self::quote(s)
+    }
+    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+        Self::quote_into(s, sout)
+    }
+}
+
+impl Bash {
     /// Quote a string of bytes into a new `Vec<u8>`.
     ///
     /// This will return one of the following:
@@ -84,7 +97,7 @@ impl Quoter for Bash {
     /// [ansi-c-quoting]:
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
-    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
         let sin = s.as_ref();
         match escape_prepare(sin) {
             Prepared::Empty => vec![b'\'', b'\''],
@@ -117,7 +130,7 @@ impl Quoter for Bash {
     /// assert_eq!(buf, b"foobar $'foo bar'");
     /// ```
     ///
-    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
         let sin = s.as_ref();
         match escape_prepare(sin) {
             Prepared::Empty => sout.extend(b"''"),
@@ -132,17 +145,6 @@ impl Quoter for Bash {
                 escape_chars(esc, sout); // Do the work.
             }
         }
-    }
-}
-
-/// Expose [`Quoter`] implementation as default impl too, for convenience.
-#[doc(hidden)]
-impl Bash {
-    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-        <Self as Quoter>::quote(s)
-    }
-    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-        <Self as Quoter>::quote_into(s, sout)
     }
 }
 

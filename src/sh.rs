@@ -1,4 +1,4 @@
-use crate::{ascii::Char, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
@@ -46,9 +46,22 @@ use crate::{ascii::Char, Quoter};
 ///
 /// If you have some expertise in this area I would love to hear from you.
 ///
+#[derive(Debug, Clone, Copy)]
 pub struct Sh;
 
-impl Quoter for Sh {
+impl Quoter for Sh {}
+
+/// Expose [`Quoter`] implementation as default impl too, for convenience.
+impl QuoterSealed for Sh {
+    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+        Self::quote(s)
+    }
+    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+        Self::quote_into(s, sout)
+    }
+}
+
+impl Sh {
     /// Quote a string of bytes into a new `Vec<u8>`.
     ///
     /// This will return one of the following:
@@ -66,7 +79,7 @@ impl Quoter for Sh {
     /// assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
     /// ```
     ///
-    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
         let sin = s.as_ref();
         if let Some(esc) = escape_prepare(sin) {
             // This may be a pointless optimisation, but calculate the memory
@@ -96,7 +109,7 @@ impl Quoter for Sh {
     /// assert_eq!(buf, b"foobar 'foo bar'");
     /// ```
     ///
-    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
         let sin = s.as_ref();
         if let Some(esc) = escape_prepare(sin) {
             // This may be a pointless optimisation, but calculate the memory
@@ -108,17 +121,6 @@ impl Quoter for Sh {
         } else {
             sout.extend(sin);
         }
-    }
-}
-
-/// Expose [`Quoter`] implementation as default impl too, for convenience.
-#[doc(hidden)]
-impl Sh {
-    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-        <Self as Quoter>::quote(s)
-    }
-    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-        <Self as Quoter>::quote_into(s, sout)
     }
 }
 
