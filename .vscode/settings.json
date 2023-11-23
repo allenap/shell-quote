@@ -2,8 +2,13 @@
     "cSpell.language": "en,en-GB",
     "cSpell.words": [
         "bindir",
+        "Clippy",
+        "dtolnay",
+        "execing",
         "metacharacters",
         "POSIX",
-        "sout"
+        "Rustfmt",
+        "sout",
+        "UXXXXXXXX"
     ]
 }
