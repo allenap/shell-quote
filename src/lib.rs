@@ -7,8 +7,8 @@ use std::{
 };
 
 mod ascii;
-pub mod bash;
-pub mod sh;
+mod bash;
+mod sh;
 
 pub use bash::Bash;
 pub use sh::Sh;

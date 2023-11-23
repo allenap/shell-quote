@@ -1,31 +1,31 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use shell_quote::sh;
+use shell_quote::Sh;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let empty_string = "";
     c.bench_function("sh escape empty", |b| {
-        b.iter(|| sh::quote(black_box(empty_string)))
+        b.iter(|| Sh::quote(black_box(empty_string)))
     });
 
     let alphanumeric_short = "abcdefghijklmnopqrstuvwxyz0123456789";
     c.bench_function("sh escape a-z", |b| {
-        b.iter(|| sh::quote(black_box(alphanumeric_short)))
+        b.iter(|| Sh::quote(black_box(alphanumeric_short)))
     });
 
     let alphanumeric_long = alphanumeric_short.repeat(1000);
     c.bench_function("sh escape a-z long", |b| {
-        b.iter(|| sh::quote(black_box(&alphanumeric_long)))
+        b.iter(|| Sh::quote(black_box(&alphanumeric_long)))
     });
 
     let complex_short = (1..=255u8).map(char::from).collect::<String>();
     c.bench_function("sh escape complex", |b| {
-        b.iter(|| sh::quote(black_box(&complex_short)))
+        b.iter(|| Sh::quote(black_box(&complex_short)))
     });
 
     let complex_long = complex_short.repeat(1000);
     c.bench_function("sh escape complex long", |b| {
-        b.iter(|| sh::quote(black_box(&complex_long)))
+        b.iter(|| Sh::quote(black_box(&complex_long)))
     });
 }
 

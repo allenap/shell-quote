@@ -60,89 +60,94 @@
 //!     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
 //!
 
-use crate::ascii::Char;
+use crate::{ascii::Char, Quoter};
 
 pub struct Bash;
 
-impl super::Quoter for Bash {
+impl Quoter for Bash {
+    /// Quote a string of bytes into a new `Vec<u8>`.
+    ///
+    /// This will return one of the following:
+    /// - The string as-is, if no escaping is necessary.
+    /// - An [ANSI-C escaped string][ansi-c-quoting], like `$'foo\nbar'`.
+    ///
+    /// See [`quote_into`](#method.quote_into) for a variant that extends an
+    /// existing `Vec` instead of allocating a new one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use shell_quote::{Bash, Quoter};
+    /// assert_eq!(Bash::quote("foobar"), b"foobar");
+    /// assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
+    /// ```
+    ///
+    /// [ansi-c-quoting]:
+    ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
+    ///
     fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-        quote(s)
+        let sin = s.as_ref();
+        match escape_prepare(sin) {
+            Prepared::Empty => vec![b'\'', b'\''],
+            Prepared::Inert => sin.into(),
+            Prepared::Escape(esc) => {
+                // This may be a pointless optimisation, but calculate the
+                // memory needed to avoid reallocations as we construct the
+                // output. Since we know we're going to use $'...' notation, we
+                // also add 3 bytes.
+                let size: usize = esc.iter().map(escape_size).sum();
+                let mut sout = Vec::with_capacity(size + 3);
+                escape_chars(esc, &mut sout); // Do the work.
+                sout
+            }
+        }
     }
 
+    /// Quote a string of bytes into an existing `Vec<u8>`.
+    ///
+    /// See [`quote`](#method.quote) for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use shell_quote::{Bash, Quoter};
+    /// let mut buf = Vec::with_capacity(128);
+    /// Bash::quote_into("foobar", &mut buf);
+    /// buf.push(b' ');  // Add a space.
+    /// Bash::quote_into("foo bar", &mut buf);
+    /// assert_eq!(buf, b"foobar $'foo bar'");
+    /// ```
+    ///
     fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-        quote_into(s, sout)
-    }
-}
-
-/// Quote a string of *bytes* into a new `Vec<u8>`.
-///
-/// This will return one of the following:
-/// - The string as-is, if no escaping is necessary.
-/// - An [ANSI-C escaped string][ansi-c-quoting], like `$'foo\nbar'`.
-///
-/// See [`quote_into`] for a variant that extends an existing `Vec` instead of
-/// allocating a new one.
-///
-/// # Examples
-///
-/// ```
-/// # use shell_quote::bash;
-/// assert_eq!(bash::quote("foobar"), b"foobar");
-/// assert_eq!(bash::quote("foo bar"), b"$'foo bar'");
-/// ```
-///
-/// [ansi-c-quoting]:
-///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
-///
-pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-    let sin = s.as_ref();
-    match escape_prepare(sin) {
-        Prepared::Empty => vec![b'\'', b'\''],
-        Prepared::Inert => sin.into(),
-        Prepared::Escape(esc) => {
-            // Maybe pointless optimisation, but here we calculate the memory we
-            // need to avoid reallocations as we construct the output string.
-            // Since we know we're going to use Bash's $'...' string notation,
-            // we also add 3 bytes.
-            let size: usize = esc.iter().map(escape_size).sum();
-            let mut sout = Vec::with_capacity(size + 3);
-            escape_chars(esc, &mut sout); // Do the work.
-            sout
+        let sin = s.as_ref();
+        match escape_prepare(sin) {
+            Prepared::Empty => sout.extend(b"''"),
+            Prepared::Inert => sout.extend(sin),
+            Prepared::Escape(esc) => {
+                // This may be a pointless optimisation, but calculate the
+                // memory needed to avoid reallocations as we construct the
+                // output. Since we know we're going to use $'...' notation, we
+                // also add 3 bytes.
+                let size: usize = esc.iter().map(escape_size).sum();
+                sout.reserve(size + 3);
+                escape_chars(esc, sout); // Do the work.
+            }
         }
     }
 }
 
-/// Quote a string of *bytes* into an existing `Vec<u8>`.
-///
-/// See [`quote`] for more details.
-///
-/// # Examples
-///
-/// ```
-/// # use shell_quote::bash;
-/// let mut buf = Vec::with_capacity(128);
-/// bash::quote_into("foobar", &mut buf);
-/// buf.push(b' ');  // Add a space.
-/// bash::quote_into("foo bar", &mut buf);
-/// assert_eq!(buf, b"foobar $'foo bar'");
-/// ```
-///
-pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-    let sin = s.as_ref();
-    match escape_prepare(sin) {
-        Prepared::Empty => sout.extend(b"''"),
-        Prepared::Inert => sout.extend(sin),
-        Prepared::Escape(esc) => {
-            // Maybe pointless optimisation, but here we calculate the memory we
-            // need to avoid reallocations as we construct the output string.
-            // Since we know we're going to use Bash's $'...' string notation,
-            // we also add 3 bytes.
-            let size: usize = esc.iter().map(escape_size).sum();
-            sout.reserve(size + 3);
-            escape_chars(esc, sout); // Do the work.
-        }
+/// Expose [`Quoter`] implementation as default impl too, for convenience.
+#[doc(hidden)]
+impl Bash {
+    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+        <Self as Quoter>::quote(s)
+    }
+    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+        <Self as Quoter>::quote_into(s, sout)
     }
 }
+
+// ----------------------------------------------------------------------------
 
 enum Prepared {
     Empty,
@@ -212,6 +217,8 @@ fn escape_size(char: &Char) -> usize {
     }
 }
 
+// ----------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use std::os::unix::prelude::OsStringExt;
@@ -219,12 +226,12 @@ mod tests {
 
     use crate::find_bins;
 
-    use super::{quote, quote_into};
+    use super::Bash;
 
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            quote("abcdefghijklmnopqrstuvwxyz"),
+            Bash::quote("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -232,51 +239,51 @@ mod tests {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            Bash::quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(quote("0123456789"), b"0123456789");
+        assert_eq!(Bash::quote("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(quote("-_=/,.+"), b"$'-_=/,.+'");
+        assert_eq!(Bash::quote("-_=/,.+"), b"$'-_=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(quote(""), b"''");
+        assert_eq!(Bash::quote(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(quote(r#"woo"wah""#), br#"$'woo"wah"'"#);
+        assert_eq!(Bash::quote(r#"woo"wah""#), br#"$'woo"wah"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(quote("\x00"), b"$'\\x00'");
-        assert_eq!(quote("\x07"), b"$'\\a'");
-        assert_eq!(quote("\x00"), b"$'\\x00'");
-        assert_eq!(quote("\x06"), b"$'\\x06'");
-        assert_eq!(quote("\x7F"), b"$'\\x7F'");
+        assert_eq!(Bash::quote("\x00"), b"$'\\x00'");
+        assert_eq!(Bash::quote("\x07"), b"$'\\a'");
+        assert_eq!(Bash::quote("\x00"), b"$'\\x00'");
+        assert_eq!(Bash::quote("\x06"), b"$'\\x06'");
+        assert_eq!(Bash::quote("\x7F"), b"$'\\x7F'");
     }
 
     #[test]
     fn test_escape_into_plain() {
         let mut buffer = Vec::new();
-        quote_into("hello", &mut buffer);
+        Bash::quote_into("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
     fn test_escape_into_with_escapes() {
         let mut buffer = Vec::new();
-        quote_into("-_=/,.+", &mut buffer);
+        Bash::quote_into("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
@@ -287,7 +294,7 @@ mod tests {
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C. To me this seems like a bug in Bash.
         let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
-        quote_into(string.as_bytes(), &mut script);
+        Bash::quote_into(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         // Test with every version of `bash` we find on `PATH`.
         for bin in find_bins("bash") {

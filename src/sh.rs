@@ -45,80 +45,85 @@
 //! If you have some expertise in this area I would love to hear from you.
 //!
 
-use crate::ascii::Char;
+use crate::{ascii::Char, Quoter};
 
 pub struct Sh;
 
-impl super::Quoter for Sh {
+impl Quoter for Sh {
+    /// Quote a string of bytes into a new `Vec<u8>`.
+    ///
+    /// This will return one of the following:
+    /// - The string as-is, if no quoting is necessary.
+    /// - A quoted string containing ANSI-C-like escapes, like `'foo\nbar'`.
+    ///
+    /// See [`quote_into`](#method.quote_into) for a variant that extends an
+    /// existing `Vec` instead of allocating a new one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use shell_quote::{Sh, Quoter};
+    /// assert_eq!(Sh::quote("foobar"), b"foobar");
+    /// assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
+    /// ```
+    ///
     fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-        quote(s)
+        let sin = s.as_ref();
+        if let Some(esc) = escape_prepare(sin) {
+            // This may be a pointless optimisation, but calculate the memory
+            // needed to avoid reallocations as we construct the output. Since
+            // we know we're going to use single quotes, we also add 2 bytes.
+            let size: usize = esc.iter().map(escape_size).sum();
+            let mut sout = Vec::with_capacity(size + 2);
+            escape_chars(esc, &mut sout); // Do the work.
+            sout
+        } else {
+            sin.into()
+        }
     }
 
+    /// Quote a string of bytes into an existing `Vec<u8>`.
+    ///
+    /// See [`quote`](#method.quote) for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use shell_quote::{Sh, Quoter};
+    /// let mut buf = Vec::with_capacity(128);
+    /// Sh::quote_into("foobar", &mut buf);
+    /// buf.push(b' ');  // Add a space.
+    /// Sh::quote_into("foo bar", &mut buf);
+    /// assert_eq!(buf, b"foobar 'foo bar'");
+    /// ```
+    ///
     fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-        quote_into(s, sout)
+        let sin = s.as_ref();
+        if let Some(esc) = escape_prepare(sin) {
+            // This may be a pointless optimisation, but calculate the memory
+            // needed to avoid reallocations as we construct the output. Since
+            // we know we're going to use single quotes, we also add 2 bytes.
+            let size: usize = esc.iter().map(escape_size).sum();
+            sout.reserve(size + 2);
+            escape_chars(esc, sout); // Do the work.
+        } else {
+            sout.extend(sin);
+        }
     }
 }
 
-/// Quote a string of *bytes* into a new `Vec<u8>`.
-///
-/// This will return one of the following:
-/// - The string as-is, if no quoting is necessary.
-/// - A quoted string containing ANSI-C-like escapes, like `'foo\nbar'`.
-///
-/// See [`quote_into`] for a variant that extends an existing `Vec` instead of
-/// allocating a new one.
-///
-/// # Examples
-///
-/// ```
-/// # use shell_quote::sh;
-/// assert_eq!(sh::quote("foobar"), b"foobar");
-/// assert_eq!(sh::quote("foo bar"), b"'foo bar'");
-/// ```
-///
-pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-    let sin = s.as_ref();
-    if let Some(esc) = escape_prepare(sin) {
-        // This may be a pointless optimisation, but we calculate the memory we
-        // need to avoid reallocations as we construct the output string. Since
-        // we now know we're going to use single quotes, we also add 2 bytes.
-        let size: usize = esc.iter().map(escape_size).sum();
-        let mut sout = Vec::with_capacity(size + 2);
-        escape_chars(esc, &mut sout); // Do the work.
-        sout
-    } else {
-        sin.into()
+/// Expose [`Quoter`] implementation as default impl too, for convenience.
+#[doc(hidden)]
+impl Sh {
+    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+        <Self as Quoter>::quote(s)
+    }
+    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+        <Self as Quoter>::quote_into(s, sout)
     }
 }
 
-/// Quote a string of *bytes* into an existing `Vec<u8>`.
-///
-/// See [`quote`] for more details.
-///
-/// # Examples
-///
-/// ```
-/// # use shell_quote::sh;
-/// let mut buf = Vec::with_capacity(128);
-/// sh::quote_into("foobar", &mut buf);
-/// buf.push(b' ');  // Add a space.
-/// sh::quote_into("foo bar", &mut buf);
-/// assert_eq!(buf, b"foobar 'foo bar'");
-/// ```
-///
-pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-    let sin = s.as_ref();
-    if let Some(esc) = escape_prepare(sin) {
-        // Maybe pointless optimisation, but here we calculate the memory we
-        // need to avoid reallocations as we construct the output string. Since
-        // we now know we're going to use single quotes, we also add 2 bytes.
-        let size: usize = esc.iter().map(escape_size).sum();
-        sout.reserve(size + 2);
-        escape_chars(esc, sout); // Do the work.
-    } else {
-        sout.extend(sin);
-    }
-}
+// ----------------------------------------------------------------------------
 
 fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
     let esc: Vec<_> = sin.iter().map(Char::from).collect();
@@ -182,6 +187,8 @@ fn escape_size(char: &Char) -> usize {
     }
 }
 
+// ----------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use std::os::unix::prelude::OsStringExt;
@@ -189,12 +196,12 @@ mod tests {
 
     use crate::find_bins;
 
-    use super::{quote, quote_into};
+    use super::Sh;
 
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            quote("abcdefghijklmnopqrstuvwxyz"),
+            Sh::quote("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -202,51 +209,51 @@ mod tests {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            Sh::quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(quote("0123456789"), b"0123456789");
+        assert_eq!(Sh::quote("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(quote("-_=/,.+"), b"'-_=/,.+'");
+        assert_eq!(Sh::quote("-_=/,.+"), b"'-_=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(quote(""), b"''");
+        assert_eq!(Sh::quote(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(quote(r#"woo'wah""#), br#"'woo\047wah"'"#);
+        assert_eq!(Sh::quote(r#"woo'wah""#), br#"'woo\047wah"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(quote("\x07"), b"'\\a'");
-        assert_eq!(quote("\x00"), b"'\\000'");
-        assert_eq!(quote("\x06"), b"'\\006'");
-        assert_eq!(quote("\x7F"), b"'\x7F'");
-        assert_eq!(quote("\x1B"), b"'\\033'");
+        assert_eq!(Sh::quote("\x07"), b"'\\a'");
+        assert_eq!(Sh::quote("\x00"), b"'\\000'");
+        assert_eq!(Sh::quote("\x06"), b"'\\006'");
+        assert_eq!(Sh::quote("\x7F"), b"'\x7F'");
+        assert_eq!(Sh::quote("\x1B"), b"'\\033'");
     }
 
     #[test]
     fn test_quote_into_plain() {
         let mut buffer = Vec::new();
-        quote_into("hello", &mut buffer);
+        Sh::quote_into("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
     fn test_quote_into_with_escapes() {
         let mut buffer = Vec::new();
-        quote_into("-_=/,.+", &mut buffer);
+        Sh::quote_into("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"'-_=/,.+'");
     }
 
@@ -257,7 +264,7 @@ mod tests {
         // shell, or whatever is masquerading as `sh`, it seems to be fine.
         let string: OsString = OsString::from_vec((u8::MIN..=u8::MAX).collect());
         let mut script = b"echo ".to_vec();
-        quote_into(string.as_bytes(), &mut script);
+        Sh::quote_into(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         for bin in find_bins("sh") {
             let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
