@@ -14,29 +14,29 @@ pub use bash::Bash;
 pub use sh::Sh;
 
 pub trait QuoteExt {
-    fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(&mut self, shell: Q, s: &S);
-    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(shell: Q, s: &S) -> Self;
+    fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(&mut self, q: Q, s: &S);
+    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(q: Q, s: &S) -> Self;
 }
 
 impl QuoteExt for Vec<u8> {
-    fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(&mut self, _shell: Q, s: &S) {
+    fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(&mut self, _q: Q, s: &S) {
         Q::quote_into(s, self);
     }
 
-    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(_shell: Q, s: &S) -> Self {
+    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(_q: Q, s: &S) -> Self {
         Q::quote(s)
     }
 }
 
 #[cfg(unix)]
 impl QuoteExt for OsString {
-    fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(&mut self, _shell: Q, s: &S) {
+    fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(&mut self, _q: Q, s: &S) {
         use std::os::unix::ffi::OsStrExt;
         let quoted = Q::quote(s);
         self.push(OsStr::from_bytes(&quoted))
     }
 
-    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(_shell: Q, s: &S) -> Self {
+    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(_q: Q, s: &S) -> Self {
         use std::os::unix::ffi::OsStringExt;
         let quoted = Q::quote(s);
         OsString::from_vec(quoted)
@@ -46,11 +46,11 @@ impl QuoteExt for OsString {
 pub trait StringQuoteExt {
     fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(
         &mut self,
-        shell: Q,
+        q: Q,
         s: &S,
     ) -> Result<(), Utf8Error>;
 
-    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(shell: Q, s: &S) -> Result<Self, FromUtf8Error>
+    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(q: Q, s: &S) -> Result<Self, FromUtf8Error>
     where
         Self: Sized;
 }
@@ -58,7 +58,7 @@ pub trait StringQuoteExt {
 impl StringQuoteExt for String {
     fn push_quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(
         &mut self,
-        _shell: Q,
+        _q: Q,
         s: &S,
     ) -> Result<(), Utf8Error> {
         let quoted = Q::quote(s);
@@ -66,7 +66,7 @@ impl StringQuoteExt for String {
         Ok(())
     }
 
-    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(_shell: Q, s: &S) -> Result<Self, FromUtf8Error> {
+    fn quoted<Q: Quoter, S: ?Sized + AsRef<[u8]>>(_q: Q, s: &S) -> Result<Self, FromUtf8Error> {
         let quoted = Q::quote(s);
         String::from_utf8(quoted)
     }
