@@ -17,7 +17,7 @@
 //! ```
 //!
 //! I wasn't able to find any definitive statement of exactly how Bourne Shell
-//! strings should be escaped, mainly because "Bourne Shell" or `/bin/sh` can
+//! strings should be quoted, mainly because "Bourne Shell" or `/bin/sh` can
 //! refer to many different pieces of software: Bash has a Bourne Shell mode,
 //! `/bin/sh` on Ubuntu is actually Dash, and on macOS 12.3 (and later, and
 //! possibly earlier) all bets are off:
@@ -38,80 +38,65 @@
 //! "standard" by a heuristic known only to me. It operates byte by byte, making
 //! no special allowances for multi-byte character sets. In other words, it's up
 //! to the caller to figure out encoding for non-ASCII characters. A significant
-//! use case for this code is to escape filenames into scripts, and on *nix
+//! use case for this code is to quote filenames into scripts, and on *nix
 //! variants I understand that filenames are essentially arrays of bytes, even
 //! if the OS adds some normalisation and case-insensitivity on top.
 //!
 //! If you have some expertise in this area I would love to hear from you.
 //!
 
-use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
-
 use crate::ascii::Char;
 
-/// Escape a string of *bytes* into a new `Vec<u8>`.
+/// Quote a string of *bytes* into a new `Vec<u8>`.
 ///
 /// This will return one of the following:
-/// - The string as-is, if no escaping is necessary.
+/// - The string as-is, if no quoting is necessary.
 /// - A quoted string containing ANSI-C-like escapes, like `'foo\nbar'`.
 ///
-/// See [`escape_into`] for a variant that extends an existing `Vec` instead of
+/// See [`quote_into`] for a variant that extends an existing `Vec` instead of
 /// allocating a new one.
-///
-/// The input argument is `Into<OsString>`, so you can pass in regular Rust
-/// strings, `PathBuf`, and so on. For a regular Rust string it will be quoted
-/// byte for byte.
 ///
 /// # Examples
 ///
 /// ```
 /// # use shell_quote::sh;
-/// assert_eq!(sh::escape("foobar"), b"foobar");
-/// assert_eq!(sh::escape("foo bar"), b"'foo bar'");
+/// assert_eq!(sh::quote("foobar"), b"foobar");
+/// assert_eq!(sh::quote("foo bar"), b"'foo bar'");
 /// ```
 ///
-pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
-    let sin = s.into().into_vec();
-    if let Some(esc) = escape_prepare(&sin) {
-        // Maybe pointless optimisation, but here we calculate the memory we need to
-        // avoid reallocations as we construct the output string. Since we now know
-        // we're going to use single quotes, we also add 2 bytes.
+pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+    let sin = s.as_ref();
+    if let Some(esc) = escape_prepare(sin) {
+        // This may be a pointless optimisation, but we calculate the memory we
+        // need to avoid reallocations as we construct the output string. Since
+        // we now know we're going to use single quotes, we also add 2 bytes.
         let size: usize = esc.iter().map(escape_size).sum();
         let mut sout = Vec::with_capacity(size + 2);
         escape_chars(esc, &mut sout); // Do the work.
         sout
     } else {
-        sin
+        sin.into()
     }
 }
 
-/// Escape a string of *bytes* into a new `OsString`.
+/// Quote a string of *bytes* into an existing `Vec<u8>`.
 ///
-/// Same as [`escape`], but returns an `OsString`.
-///
-pub fn quote<T: Into<OsString>>(s: T) -> OsString {
-    OsString::from_vec(escape(s))
-}
-
-/// Escape a string of *bytes* into an existing `Vec<u8>`.
-///
-/// See [`escape`] for more details.
+/// See [`quote`] for more details.
 ///
 /// # Examples
 ///
 /// ```
 /// # use shell_quote::sh;
 /// let mut buf = Vec::with_capacity(128);
-/// sh::escape_into("foobar", &mut buf);
+/// sh::quote_into("foobar", &mut buf);
 /// buf.push(b' ');  // Add a space.
-/// sh::escape_into("foo bar", &mut buf);
+/// sh::quote_into("foo bar", &mut buf);
 /// assert_eq!(buf, b"foobar 'foo bar'");
 /// ```
 ///
-pub fn escape_into<T: Into<OsString>>(s: T, sout: &mut Vec<u8>) {
-    let sin = s.into().into_vec();
-    if let Some(esc) = escape_prepare(&sin) {
+pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+    let sin = s.as_ref();
+    if let Some(esc) = escape_prepare(sin) {
         // Maybe pointless optimisation, but here we calculate the memory we
         // need to avoid reallocations as we construct the output string. Since
         // we now know we're going to use single quotes, we also add 2 bytes.
@@ -187,17 +172,17 @@ fn escape_size(char: &Char) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::OsString;
     use std::os::unix::prelude::OsStringExt;
+    use std::{ffi::OsString, os::unix::ffi::OsStrExt};
 
     use crate::find_bins;
 
-    use super::{escape, escape_into, quote};
+    use super::{quote, quote_into};
 
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            escape("abcdefghijklmnopqrstuvwxyz"),
+            quote("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -205,51 +190,51 @@ mod tests {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            escape("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(escape("0123456789"), b"0123456789");
+        assert_eq!(quote("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(escape("-_=/,.+"), b"'-_=/,.+'");
+        assert_eq!(quote("-_=/,.+"), b"'-_=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(escape(""), b"''");
+        assert_eq!(quote(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(escape(r#"woo'wah""#), br#"'woo\047wah"'"#);
+        assert_eq!(quote(r#"woo'wah""#), br#"'woo\047wah"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(escape("\x07"), b"'\\a'");
-        assert_eq!(escape("\x00"), b"'\\000'");
-        assert_eq!(escape("\x06"), b"'\\006'");
-        assert_eq!(escape("\x7F"), b"'\x7F'");
-        assert_eq!(escape("\x1B"), b"'\\033'");
+        assert_eq!(quote("\x07"), b"'\\a'");
+        assert_eq!(quote("\x00"), b"'\\000'");
+        assert_eq!(quote("\x06"), b"'\\006'");
+        assert_eq!(quote("\x7F"), b"'\x7F'");
+        assert_eq!(quote("\x1B"), b"'\\033'");
     }
 
     #[test]
-    fn test_escape_into_plain() {
+    fn test_quote_into_plain() {
         let mut buffer = Vec::new();
-        escape_into("hello", &mut buffer);
+        quote_into("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
-    fn test_escape_into_with_escapes() {
+    fn test_quote_into_with_escapes() {
         let mut buffer = Vec::new();
-        escape_into("-_=/,.+", &mut buffer);
+        quote_into("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"'-_=/,.+'");
     }
 
@@ -260,7 +245,7 @@ mod tests {
         // shell, or whatever is masquerading as `sh`, it seems to be fine.
         let string: OsString = OsString::from_vec((u8::MIN..=u8::MAX).collect());
         let mut script = b"echo ".to_vec();
-        escape_into(&string, &mut script);
+        quote_into(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         for bin in find_bins("sh") {
             let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
@@ -269,13 +254,5 @@ mod tests {
             let result = OsString::from_vec(result);
             assert_eq!(result, string);
         }
-    }
-
-    #[test]
-    fn test_quote() {
-        assert_eq!(
-            quote("abcdefghijklmnopqrstuvwxyz"),
-            OsString::from("abcdefghijklmnopqrstuvwxyz"),
-        );
     }
 }

@@ -20,7 +20,7 @@
 //! From bash(1):
 //!
 //!   Words of the form $'string' are treated specially. The word expands to
-//!   string, with backslash- escaped characters replaced as specified by the
+//!   string, with backslash-escaped characters replaced as specified by the
 //!   ANSI C standard. Backslash escape sequences, if present, are decoded as
 //!   follows:
 //!
@@ -50,7 +50,7 @@
 //! current locale? Are strings in Bash now natively Unicode?
 //!
 //! For now it's up to the caller to figure out encoding. A significant use case
-//! for this code is to escape filenames into scripts, and on *nix variants I
+//! for this code is to quote filenames into scripts, and on *nix variants I
 //! understand that filenames are essentially arrays of bytes, even if the OS
 //! adds some normalisation and case-insensitivity on top.
 //!
@@ -60,40 +60,33 @@
 //!     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
 //!
 
-use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
-
 use crate::ascii::Char;
 
-/// Escape a string of *bytes* into a new `Vec<u8>`.
+/// Quote a string of *bytes* into a new `Vec<u8>`.
 ///
 /// This will return one of the following:
 /// - The string as-is, if no escaping is necessary.
 /// - An [ANSI-C escaped string][ansi-c-quoting], like `$'foo\nbar'`.
 ///
-/// See [`escape_into`] for a variant that extends an existing `Vec` instead of
+/// See [`quote_into`] for a variant that extends an existing `Vec` instead of
 /// allocating a new one.
 ///
 /// # Examples
 ///
 /// ```
 /// # use shell_quote::bash;
-/// assert_eq!(bash::escape("foobar"), b"foobar");
-/// assert_eq!(bash::escape("foo bar"), b"$'foo bar'");
+/// assert_eq!(bash::quote("foobar"), b"foobar");
+/// assert_eq!(bash::quote("foo bar"), b"$'foo bar'");
 /// ```
-///
-/// The input argument is `Into<OsString>`, so you can pass in regular Rust
-/// strings, `PathBuf`, and so on. For a regular Rust string it will be quoted
-/// byte for byte.
 ///
 /// [ansi-c-quoting]:
 ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
 ///
-pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
-    let sin = s.into().into_vec();
-    match escape_prepare(&sin) {
+pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+    let sin = s.as_ref();
+    match escape_prepare(sin) {
         Prepared::Empty => vec![b'\'', b'\''],
-        Prepared::Inert => sin,
+        Prepared::Inert => sin.into(),
         Prepared::Escape(esc) => {
             // Maybe pointless optimisation, but here we calculate the memory we
             // need to avoid reallocations as we construct the output string.
@@ -107,34 +100,24 @@ pub fn escape<T: Into<OsString>>(s: T) -> Vec<u8> {
     }
 }
 
-/// Escape a string of *bytes* into a new `OsString`.
+/// Quote a string of *bytes* into an existing `Vec<u8>`.
 ///
-/// Same as [`escape`], but returns an `OsString`.
-///
-pub fn quote<T: Into<OsString>>(s: T) -> OsString {
-    OsString::from_vec(escape(s))
-}
-
-/// Escape a string of *bytes* into an existing `Vec<u8>`.
-///
-/// See [`escape`][] for more details.
-///
-/// [`escape`]: ./fn.escape.html
+/// See [`quote`] for more details.
 ///
 /// # Examples
 ///
 /// ```
 /// # use shell_quote::bash;
 /// let mut buf = Vec::with_capacity(128);
-/// bash::escape_into("foobar", &mut buf);
+/// bash::quote_into("foobar", &mut buf);
 /// buf.push(b' ');  // Add a space.
-/// bash::escape_into("foo bar", &mut buf);
+/// bash::quote_into("foo bar", &mut buf);
 /// assert_eq!(buf, b"foobar $'foo bar'");
 /// ```
 ///
-pub fn escape_into<T: Into<OsString>>(s: T, sout: &mut Vec<u8>) {
-    let sin = s.into().into_vec();
-    match escape_prepare(&sin) {
+pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+    let sin = s.as_ref();
+    match escape_prepare(sin) {
         Prepared::Empty => sout.extend(b"''"),
         Prepared::Inert => sout.extend(sin),
         Prepared::Escape(esc) => {
@@ -169,7 +152,7 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    // Push a Bash-style $'...' escaped string into `sout`.
+    // Push a Bash-style $'...' quoted string into `sout`.
     sout.extend(b"$'");
     for mode in esc {
         use Char::*;
@@ -219,17 +202,17 @@ fn escape_size(char: &Char) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::OsString;
     use std::os::unix::prelude::OsStringExt;
+    use std::{ffi::OsString, os::unix::ffi::OsStrExt};
 
     use crate::find_bins;
 
-    use super::{escape, escape_into, quote};
+    use super::{quote, quote_into};
 
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            escape("abcdefghijklmnopqrstuvwxyz"),
+            quote("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -237,51 +220,51 @@ mod tests {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            escape("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(escape("0123456789"), b"0123456789");
+        assert_eq!(quote("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(escape("-_=/,.+"), b"$'-_=/,.+'");
+        assert_eq!(quote("-_=/,.+"), b"$'-_=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(escape(""), b"''");
+        assert_eq!(quote(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(escape(r#"woo"wah""#), br#"$'woo"wah"'"#);
+        assert_eq!(quote(r#"woo"wah""#), br#"$'woo"wah"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(escape("\x00"), b"$'\\x00'");
-        assert_eq!(escape("\x07"), b"$'\\a'");
-        assert_eq!(escape("\x00"), b"$'\\x00'");
-        assert_eq!(escape("\x06"), b"$'\\x06'");
-        assert_eq!(escape("\x7F"), b"$'\\x7F'");
+        assert_eq!(quote("\x00"), b"$'\\x00'");
+        assert_eq!(quote("\x07"), b"$'\\a'");
+        assert_eq!(quote("\x00"), b"$'\\x00'");
+        assert_eq!(quote("\x06"), b"$'\\x06'");
+        assert_eq!(quote("\x7F"), b"$'\\x7F'");
     }
 
     #[test]
     fn test_escape_into_plain() {
         let mut buffer = Vec::new();
-        escape_into("hello", &mut buffer);
+        quote_into("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
     fn test_escape_into_with_escapes() {
         let mut buffer = Vec::new();
-        escape_into("-_=/,.+", &mut buffer);
+        quote_into("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
@@ -292,7 +275,7 @@ mod tests {
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C. To me this seems like a bug in Bash.
         let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
-        escape_into(&string, &mut script);
+        quote_into(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         // Test with every version of `bash` we find on `PATH`.
         for bin in find_bins("bash") {
@@ -300,13 +283,5 @@ mod tests {
             let result = OsString::from_vec(output.stdout);
             assert_eq!(result, string);
         }
-    }
-
-    #[test]
-    fn test_quote() {
-        assert_eq!(
-            quote("abcdefghijklmnopqrstuvwxyz"),
-            OsString::from("abcdefghijklmnopqrstuvwxyz"),
-        );
     }
 }
