@@ -1,4 +1,4 @@
-use crate::{ascii::Char, quoter::QuoterSealed, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -68,10 +68,10 @@ impl Quoter for Bash {}
 
 /// Expose [`Quoter`] implementation as default impl too, for convenience.
 impl QuoterSealed for Bash {
-    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         Self::quote(s)
     }
-    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         Self::quote_into(s, sout)
     }
 }
@@ -97,11 +97,11 @@ impl Bash {
     /// [ansi-c-quoting]:
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
-    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-        let sin = s.as_ref();
-        match escape_prepare(sin) {
+    pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+        let sin: Quotable<'a> = s.into();
+        match escape_prepare(sin.bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
-            Prepared::Inert => sin.into(),
+            Prepared::Inert => sin.bytes.into(),
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
@@ -130,11 +130,11 @@ impl Bash {
     /// assert_eq!(buf, b"foobar $'foo bar'");
     /// ```
     ///
-    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-        let sin = s.as_ref();
-        match escape_prepare(sin) {
+    pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+        let sin: Quotable<'a> = s.into();
+        match escape_prepare(sin.bytes) {
             Prepared::Empty => sout.extend(b"''"),
-            Prepared::Inert => sout.extend(sin),
+            Prepared::Inert => sout.extend(sin.bytes),
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the

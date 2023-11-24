@@ -21,7 +21,7 @@ some limitations and caveats.
 When quoting using raw bytes it can be convenient to call [`Bash`]'s and
 [`Sh`]'s associated functions directly:
 
-```
+```rust
 use shell_quote::{Bash, Sh};
 assert_eq!(Bash::quote("foobar"), b"foobar");
 assert_eq!(Sh::quote("foobar"), b"foobar");
@@ -29,17 +29,20 @@ assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
 assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
 ```
 
-It's also possible to use the extension trait [`QuoteExt`]:
+It's also possible to use the extension trait [`QuoteRefExt`] which provides a
+[`quoted`] function:
 
-```
-use shell_quote::{Bash, Sh, QuoteExt};
-assert_eq!(Vec::quoted(Bash, "foo bar"), b"$'foo bar'");
-assert_eq!(Vec::quoted(Sh, "foo bar"), b"'foo bar'");
+```rust
+use shell_quote::{Bash, Sh, QuoteRefExt};
+let quoted: Vec<u8> = "foo bar".quoted(Bash);
+assert_eq!(quoted, b"$'foo bar'");
+let quoted: Vec<u8> = "foo bar".quoted(Sh);
+assert_eq!(quoted, b"'foo bar'");
 ```
 
-or, to construct something more elaborate:
+Or the extension trait [`QuoteExt`] for pushing quoted strings into a buffer:
 
-```
+```rust
 use shell_quote::{Bash, QuoteExt};
 let mut script: String = "echo ".into();
 script.push_quoted(Bash, "foo bar");

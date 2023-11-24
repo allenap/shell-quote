@@ -1,4 +1,4 @@
-use crate::{ascii::Char, quoter::QuoterSealed, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
@@ -53,10 +53,10 @@ impl Quoter for Sh {}
 
 /// Expose [`Quoter`] implementation as default impl too, for convenience.
 impl QuoterSealed for Sh {
-    fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
+    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         Self::quote(s)
     }
-    fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
+    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         Self::quote_into(s, sout)
     }
 }
@@ -79,9 +79,9 @@ impl Sh {
     /// assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
     /// ```
     ///
-    pub fn quote<S: ?Sized + AsRef<[u8]>>(s: &S) -> Vec<u8> {
-        let sin = s.as_ref();
-        if let Some(esc) = escape_prepare(sin) {
+    pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+        let sin: Quotable<'a> = s.into();
+        if let Some(esc) = escape_prepare(sin.bytes) {
             // This may be a pointless optimisation, but calculate the memory
             // needed to avoid reallocations as we construct the output. Since
             // we know we're going to use single quotes, we also add 2 bytes.
@@ -90,7 +90,7 @@ impl Sh {
             escape_chars(esc, &mut sout); // Do the work.
             sout
         } else {
-            sin.into()
+            sin.bytes.into()
         }
     }
 
@@ -109,9 +109,9 @@ impl Sh {
     /// assert_eq!(buf, b"foobar 'foo bar'");
     /// ```
     ///
-    pub fn quote_into<S: ?Sized + AsRef<[u8]>>(s: &S, sout: &mut Vec<u8>) {
-        let sin = s.as_ref();
-        if let Some(esc) = escape_prepare(sin) {
+    pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+        let sin: Quotable<'a> = s.into();
+        if let Some(esc) = escape_prepare(sin.bytes) {
             // This may be a pointless optimisation, but calculate the memory
             // needed to avoid reallocations as we construct the output. Since
             // we know we're going to use single quotes, we also add 2 bytes.
@@ -119,7 +119,7 @@ impl Sh {
             sout.reserve(size + 2);
             escape_chars(esc, sout); // Do the work.
         } else {
-            sout.extend(sin);
+            sout.extend(sin.bytes);
         }
     }
 }
