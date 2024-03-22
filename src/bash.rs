@@ -1,4 +1,4 @@
-use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex, Quotable, Quoter};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -172,6 +172,7 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
     // Push a Bash-style $'...' quoted string into `sout`.
     sout.extend(b"$'");
+    let mut tmp = b"\\x00".to_owned();
     for mode in esc {
         use Char::*;
         match mode {
@@ -183,14 +184,20 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             CarriageReturn => sout.extend(b"\\r"),
             HorizontalTab => sout.extend(b"\\t"),
             VerticalTab => sout.extend(b"\\v"),
-            Control(ch) => sout.extend(format!("\\x{:02X}", ch).bytes()),
+            Control(ch) => {
+                tmp[2..].copy_from_slice(&u8_to_hex(ch));
+                sout.extend(&tmp)
+            }
             Backslash => sout.extend(b"\\\\"),
             SingleQuote => sout.extend(b"\\'"),
             DoubleQuote => sout.extend(b"\""),
             Delete => sout.extend(b"\\x7F"),
             PrintableInert(ch) => sout.push(ch),
             Printable(ch) => sout.push(ch),
-            Extended(ch) => sout.extend(format!("\\x{:02X}", ch).bytes()),
+            Extended(ch) => {
+                tmp[2..].copy_from_slice(&u8_to_hex(ch));
+                sout.extend(&tmp)
+            }
         }
     }
     sout.push(b'\'');
