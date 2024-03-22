@@ -7,6 +7,7 @@ mod ascii;
 mod bash;
 mod fish;
 mod sh;
+pub(crate) mod util;
 
 pub use bash::Bash;
 pub use fish::Fish;

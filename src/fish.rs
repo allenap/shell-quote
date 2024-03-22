@@ -1,4 +1,4 @@
-use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex, Quotable, Quoter};
 
 /// Quote byte strings for use with fish
 ///
@@ -121,13 +121,6 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             }
         }
     };
-    fn u8_to_hex(ch: u8) -> [u8; 2] {
-        const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
-        [
-            HEX_DIGITS[(ch >> 4) as usize],
-            HEX_DIGITS[(ch & 0xF) as usize],
-        ]
-    }
     for mode in esc {
         use Char::*;
         let mut tmp = b"\\x00".to_owned();
