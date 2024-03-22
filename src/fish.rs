@@ -101,46 +101,59 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
     // Push a Fish-style $'...' quoted string into `sout`.
     sout.extend(b"'");
     let mut is_there_char_after_last_single_quote = false;
-    macro_rules! push {
-        (outside, $ch:expr) => {
+    let mut push_literal = |true_quotes: bool, literal: &[u8]| {
+        if true_quotes {
+            sout.extend(literal);
+            is_there_char_after_last_single_quote = true;
+        } else {
             if is_there_char_after_last_single_quote {
                 // finish the previous single quote and start a new one
                 sout.push(b'\'');
-                sout.extend($ch);
+                sout.extend(literal);
                 sout.push(b'\'');
                 is_there_char_after_last_single_quote = false;
             } else {
                 // Pop the useless single quote
                 debug_assert_eq!(sout.pop(), Some(b'\''));
-                sout.extend($ch);
+                sout.extend(literal);
                 sout.push(b'\'');
                 is_there_char_after_last_single_quote = false;
             }
-        };
-        (inside, $ch:expr) => {{
-            sout.extend($ch);
-            is_there_char_after_last_single_quote = true;
-        }};
+        }
+    };
+    fn u8_to_hex(ch: u8) -> [u8; 2] {
+        const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
+        [
+            HEX_DIGITS[(ch >> 4) as usize],
+            HEX_DIGITS[(ch & 0xF) as usize],
+        ]
     }
     for mode in esc {
         use Char::*;
+        let mut tmp = b"\\x00".to_owned();
         match mode {
-            Bell => push!(outside, b"\\a"),
-            Backspace => push!(outside, b"\\b"),
-            Escape => push!(outside, b"\\e"),
-            FormFeed => push!(outside, b"\\f"),
-            NewLine => push!(inside, b"\n"), // No need to escape newlines in fish
-            CarriageReturn => push!(outside, b"\\r"),
-            HorizontalTab => push!(outside, b"\\t"),
-            VerticalTab => push!(outside, b"\\v"),
-            Control(ch) => push!(outside, format!("\\x{:02X}", ch).bytes()),
-            Backslash => push!(inside, b"\\\\"),
-            SingleQuote => push!(inside, b"\\'"),
-            DoubleQuote => push!(inside, b"\""),
-            Delete => push!(outside, b"\\x7F"),
-            PrintableInert(ch) => push!(inside, ch.to_le_bytes()),
-            Printable(ch) => push!(inside, ch.to_le_bytes()),
-            Extended(ch) => push!(outside, format!("\\x{:02X}", ch).bytes()),
+            Bell => push_literal(false, b"\\a"),
+            Backspace => push_literal(false, b"\\b"),
+            Escape => push_literal(false, b"\\e"),
+            FormFeed => push_literal(false, b"\\f"),
+            NewLine => push_literal(true, b"\n"), // No need to escape newlines in fish
+            CarriageReturn => push_literal(false, b"\\r"),
+            HorizontalTab => push_literal(false, b"\\t"),
+            VerticalTab => push_literal(false, b"\\v"),
+            Control(ch) => {
+                tmp[2..].copy_from_slice(&u8_to_hex(ch));
+                push_literal(false, &tmp[..])
+            }
+            Backslash => push_literal(true, b"\\\\"),
+            SingleQuote => push_literal(true, b"\\'"),
+            DoubleQuote => push_literal(true, b"\""),
+            Delete => push_literal(false, b"\\x7F"),
+            PrintableInert(ch) => push_literal(true, &ch.to_le_bytes()),
+            Printable(ch) => push_literal(true, &ch.to_le_bytes()),
+            Extended(ch) => {
+                tmp[2..].copy_from_slice(&u8_to_hex(ch));
+                push_literal(false, &tmp[..])
+            }
         }
     }
     if is_there_char_after_last_single_quote {
