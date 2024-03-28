@@ -33,7 +33,7 @@ impl Fish {
     /// ```
     /// # use shell_quote::{Fish, Quoter};
     /// assert_eq!(Fish::quote("foobar"), b"foobar");
-    /// assert_eq!(Fish::quote("foo 'bar"), b"'foo \'bar'");
+    /// assert_eq!(Fish::quote("foo 'bar"), b"'foo \\'bar'");
     /// ```
     pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
@@ -60,7 +60,7 @@ impl Fish {
     /// Fish::quote_into("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
     /// Fish::quote_into("foo 'bar", &mut buf);
-    /// assert_eq!(buf, b"foobar 'foo \'bar'");
+    /// assert_eq!(buf, b"foobar 'foo \\'bar'");
     /// ```
     ///
     pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
@@ -114,7 +114,7 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
                 is_there_char_after_last_single_quote = false;
             } else {
                 // Pop the useless single quote
-                debug_assert_eq!(sout.pop(), Some(b'\''));
+                assert_eq!(sout.pop(), Some(b'\''));
                 sout.extend(literal);
                 sout.push(b'\'');
                 is_there_char_after_last_single_quote = false;
@@ -153,6 +153,6 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
         sout.push(b'\'');
     } else {
         // Pop the useless single quote
-        debug_assert_eq!(sout.pop(), Some(b'\''));
+        assert_eq!(sout.pop(), Some(b'\''));
     }
 }

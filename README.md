@@ -10,7 +10,7 @@ Inspired by the Haskell [shell-escape][] package, which is the most
 comprehensive implementation of shell escaping I've yet seen.
 
 For now this package implements escaping for `/bin/sh`-like shells, [GNU
-Bash][gnu-bash] and [fish][]. 
+Bash][gnu-bash] and [fish][].
 Please read the documentation for each module to learn about some limitations
 and caveats.
 
@@ -30,14 +30,14 @@ assert_eq!(Sh::quote("foobar"), b"foobar");
 assert_eq!(Fish::quote("foobar"), b"foobar");
 assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
 assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
-assert_eq!(Fish::quote("foo bar"), b"'foobar'");
+assert_eq!(Fish::quote("foo bar"), b"'foo bar'");
 ```
 
 It's also possible to use the extension trait [`QuoteRefExt`] which provides a
 [`quoted`] function:
 
 ```rust
-use shell_quote::{Bash, Sh, QuoteRefExt};
+use shell_quote::{Bash, Sh, Fish, QuoteRefExt};
 let quoted: Vec<u8> = "foo bar".quoted(Bash);
 assert_eq!(quoted, b"$'foo bar'");
 let quoted: Vec<u8> = "foo bar".quoted(Sh);
