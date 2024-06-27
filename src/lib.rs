@@ -5,9 +5,12 @@ use std::path::{Path, PathBuf};
 
 mod ascii;
 mod bash;
+mod fish;
 mod sh;
+pub(crate) mod util;
 
 pub use bash::Bash;
+pub use fish::Fish;
 pub use sh::Sh;
 
 /// Extension trait for pushing shell quoted byte slices, e.g. `&[u8]`, [`&str`]

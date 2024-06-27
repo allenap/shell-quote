@@ -9,12 +9,14 @@ simple as wrapping a string in quotes.
 Inspired by the Haskell [shell-escape][] package, which is the most
 comprehensive implementation of shell escaping I've yet seen.
 
-For now this package implements escaping for `/bin/sh`-like shells and [GNU
-Bash][gnu-bash]. Please read the documentation for each module to learn about
-some limitations and caveats.
+For now this package implements escaping for `/bin/sh`-like shells, [GNU
+Bash][gnu-bash] and [fish][].
+Please read the documentation for each module to learn about some limitations
+and caveats.
 
 [shell-escape]: https://github.com/solidsnack/shell-escape
 [gnu-bash]: https://www.gnu.org/software/bash/
+[fish]: https://fishshell.com/
 
 ## Examples
 
@@ -22,21 +24,25 @@ When quoting using raw bytes it can be convenient to call [`Bash`]'s and
 [`Sh`]'s associated functions directly:
 
 ```rust
-use shell_quote::{Bash, Sh};
+use shell_quote::{Bash, Sh, Fish};
 assert_eq!(Bash::quote("foobar"), b"foobar");
 assert_eq!(Sh::quote("foobar"), b"foobar");
+assert_eq!(Fish::quote("foobar"), b"foobar");
 assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
 assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
+assert_eq!(Fish::quote("foo bar"), b"'foo bar'");
 ```
 
 It's also possible to use the extension trait [`QuoteRefExt`] which provides a
-[`quoted`] function:
+[`quoted`][`QuoteRefExt::quoted`] function:
 
 ```rust
-use shell_quote::{Bash, Sh, QuoteRefExt};
+use shell_quote::{Bash, Sh, Fish, QuoteRefExt};
 let quoted: Vec<u8> = "foo bar".quoted(Bash);
 assert_eq!(quoted, b"$'foo bar'");
 let quoted: Vec<u8> = "foo bar".quoted(Sh);
+assert_eq!(quoted, b"'foo bar'");
+let quoted: Vec<u8> = "foo bar".quoted(Fish);
 assert_eq!(quoted, b"'foo bar'");
 ```
 
