@@ -98,27 +98,14 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    // Push a Fish-style $'...' quoted string into `sout`.
-    sout.extend(b"'");
-    let mut is_there_char_after_last_single_quote = false;
-    let mut push_literal = |true_quotes: bool, literal: &[u8]| {
-        if true_quotes {
-            sout.extend(literal);
-            is_there_char_after_last_single_quote = true;
+    let mut inside_quotes_now = false;
+    let mut push_literal = |inside_quotes: bool, literal: &[u8]| {
+        if inside_quotes_now == inside_quotes {
+            sout.extend(literal)
         } else {
-            if is_there_char_after_last_single_quote {
-                // finish the previous single quote and start a new one
-                sout.push(b'\'');
-                sout.extend(literal);
-                sout.push(b'\'');
-                is_there_char_after_last_single_quote = false;
-            } else {
-                // Pop the useless single quote
-                assert_eq!(sout.pop(), Some(b'\''));
-                sout.extend(literal);
-                sout.push(b'\'');
-                is_there_char_after_last_single_quote = false;
-            }
+            sout.push(b'\'');
+            inside_quotes_now = inside_quotes;
+            sout.extend(literal);
         }
     };
     for mode in esc {
@@ -149,10 +136,11 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             }
         }
     }
-    if is_there_char_after_last_single_quote {
-        sout.push(b'\'');
-    } else {
-        // Pop the useless single quote
-        assert_eq!(sout.pop(), Some(b'\''));
+    if inside_quotes_now {
+        if sout.last() == Some(&b'\'') {
+            sout.pop(); // Remove trailing quote.
+        } else {
+            sout.push(b'\'');
+        }
     }
 }
