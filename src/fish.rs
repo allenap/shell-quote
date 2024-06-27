@@ -1,8 +1,23 @@
 use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex, Quotable, Quoter};
 
-/// Quote byte strings for use with fish
+/// Quote byte strings for use with fish.
 ///
-/// Reference:https://fishshell.com/docs/current/language.html#quotes
+/// The documentation on [quoting][] and [escaping characters][] in fish is
+/// confusing at first, especially when coming from a Bourne-like shell, but
+/// essentially we have to be able to move and and out of a quoted string
+/// context. For example, the escape sequence `\t` for a tab _must_ be outside
+/// of quotes, single or double, to be recognised as a tab character by fish:
+///
+/// ```fish
+/// echo 'foo'\t'bar'
+/// ```
+///
+/// This emphasises the importance of using the correct quoting module for the
+/// target shell.
+///
+/// [quoting]: https://fishshell.com/docs/current/language.html#quotes
+/// [escaping characters]:
+///     https://fishshell.com/docs/current/language.html#escaping-characters
 #[derive(Debug, Clone, Copy)]
 pub struct Fish;
 

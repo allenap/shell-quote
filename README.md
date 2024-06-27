@@ -34,7 +34,7 @@ assert_eq!(Fish::quote("foo bar"), b"'foo bar'");
 ```
 
 It's also possible to use the extension trait [`QuoteRefExt`] which provides a
-[`quoted`] function:
+[`quoted`][`QuoteRefExt::quoted`] function:
 
 ```rust
 use shell_quote::{Bash, Sh, Fish, QuoteRefExt};
