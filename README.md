@@ -20,8 +20,8 @@ and caveats.
 
 ## Examples
 
-When quoting using raw bytes it can be convenient to call [`Bash`]'s and
-[`Sh`]'s associated functions directly:
+When quoting using raw bytes it can be convenient to call [`Bash`]'s, [`Sh`]'s,
+and [`Fish`]'s associated functions directly:
 
 ```rust
 use shell_quote::{Bash, Sh, Fish};
