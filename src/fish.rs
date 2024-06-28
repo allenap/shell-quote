@@ -1,4 +1,4 @@
-use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex, Quotable, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
 
 /// Quote byte strings for use with fish.
 ///
@@ -123,22 +123,21 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
 
     let mut inside_quotes_now = false;
     let mut push_literal = |style: QuoteStyle, literal: &[u8]| {
-        if inside_quotes_now {
-            if style == Outside {
+        match (inside_quotes_now, style) {
+            (true, Outside) => {
                 sout.push(b'\'');
                 inside_quotes_now = false;
             }
-        } else {
-            if style == Inside {
+            (false, Inside) => {
                 sout.push(b'\'');
                 inside_quotes_now = true;
             }
+            _ => (),
         }
         sout.extend(literal);
     };
     for mode in esc {
         use Char::*;
-        let mut tmp = b"\\x00".to_owned();
         match mode {
             Bell => push_literal(Outside, b"\\a"),
             Backspace => push_literal(Outside, b"\\b"),
@@ -148,20 +147,14 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             CarriageReturn => push_literal(Outside, b"\\r"),
             HorizontalTab => push_literal(Outside, b"\\t"),
             VerticalTab => push_literal(Outside, b"\\v"),
-            Control(ch) => {
-                tmp[2..].copy_from_slice(&u8_to_hex(ch));
-                push_literal(Outside, &tmp[..])
-            }
+            Control(ch) => push_literal(Outside, &u8_to_hex_escape(ch)),
             Backslash => push_literal(Inside, b"\\\\"),
             SingleQuote => push_literal(Inside, b"\\'"),
             DoubleQuote => push_literal(Inside, b"\""),
             Delete => push_literal(Outside, b"\\x7F"),
             PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
             Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
-            Extended(ch) => {
-                tmp[2..].copy_from_slice(&u8_to_hex(ch));
-                push_literal(Outside, &tmp[..])
-            }
+            Extended(ch) => push_literal(Outside, &u8_to_hex_escape(ch)),
         }
     }
     if inside_quotes_now {
