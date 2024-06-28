@@ -48,7 +48,7 @@ impl Fish {
     /// ```
     /// # use shell_quote::{Fish, Quoter};
     /// assert_eq!(Fish::quote("foobar"), b"foobar");
-    /// assert_eq!(Fish::quote("foo 'bar"), b"'foo \\'bar'");
+    /// assert_eq!(Fish::quote("foo 'bar"), b"foo' \\'bar'");
     /// ```
     pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
@@ -75,7 +75,7 @@ impl Fish {
     /// Fish::quote_into("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
     /// Fish::quote_into("foo 'bar", &mut buf);
-    /// assert_eq!(buf, b"foobar 'foo \\'bar'");
+    /// assert_eq!(buf, b"foobar foo' \\'bar'");
     /// ```
     ///
     pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
@@ -113,41 +113,54 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
+    #[derive(PartialEq)]
+    enum QuoteStyle {
+        Inside,
+        Outside,
+        Whatever,
+    }
+    use QuoteStyle::*;
+
     let mut inside_quotes_now = false;
-    let mut push_literal = |inside_quotes: bool, literal: &[u8]| {
-        if inside_quotes_now == inside_quotes {
-            sout.extend(literal)
+    let mut push_literal = |style: QuoteStyle, literal: &[u8]| {
+        if inside_quotes_now {
+            if style == Outside {
+                sout.push(b'\'');
+                inside_quotes_now = false;
+            }
         } else {
-            sout.push(b'\'');
-            inside_quotes_now = inside_quotes;
-            sout.extend(literal);
+            if style == Inside {
+                sout.push(b'\'');
+                inside_quotes_now = true;
+            }
         }
+        sout.extend(literal);
     };
     for mode in esc {
         use Char::*;
         let mut tmp = b"\\x00".to_owned();
         match mode {
-            Bell => push_literal(false, b"\\a"),
-            Backspace => push_literal(false, b"\\b"),
-            Escape => push_literal(false, b"\\e"),
-            FormFeed => push_literal(false, b"\\f"),
-            NewLine => push_literal(true, b"\n"), // No need to escape newlines in fish
-            CarriageReturn => push_literal(false, b"\\r"),
-            HorizontalTab => push_literal(false, b"\\t"),
-            VerticalTab => push_literal(false, b"\\v"),
+            Bell => push_literal(Outside, b"\\a"),
+            Backspace => push_literal(Outside, b"\\b"),
+            Escape => push_literal(Outside, b"\\e"),
+            FormFeed => push_literal(Outside, b"\\f"),
+            NewLine => push_literal(Outside, b"\\n"),
+            CarriageReturn => push_literal(Outside, b"\\r"),
+            HorizontalTab => push_literal(Outside, b"\\t"),
+            VerticalTab => push_literal(Outside, b"\\v"),
             Control(ch) => {
                 tmp[2..].copy_from_slice(&u8_to_hex(ch));
-                push_literal(false, &tmp[..])
+                push_literal(Outside, &tmp[..])
             }
-            Backslash => push_literal(true, b"\\\\"),
-            SingleQuote => push_literal(true, b"\\'"),
-            DoubleQuote => push_literal(true, b"\""),
-            Delete => push_literal(false, b"\\x7F"),
-            PrintableInert(ch) => push_literal(true, &ch.to_le_bytes()),
-            Printable(ch) => push_literal(true, &ch.to_le_bytes()),
+            Backslash => push_literal(Inside, b"\\\\"),
+            SingleQuote => push_literal(Inside, b"\\'"),
+            DoubleQuote => push_literal(Inside, b"\""),
+            Delete => push_literal(Outside, b"\\x7F"),
+            PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
+            Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
             Extended(ch) => {
                 tmp[2..].copy_from_slice(&u8_to_hex(ch));
-                push_literal(false, &tmp[..])
+                push_literal(Outside, &tmp[..])
             }
         }
     }

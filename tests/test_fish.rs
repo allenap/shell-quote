@@ -29,7 +29,7 @@ mod impl_fish {
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(Fish::quote("-_=/,.+"), b"'-_=/,.+'");
+        assert_eq!(Fish::quote("-_=/,.+"), b"-_'=/,.+'");
     }
 
     #[test]
@@ -39,7 +39,7 @@ mod impl_fish {
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(Fish::quote(r#"woo"wah""#), br#"'woo"wah"'"#);
+        assert_eq!(Fish::quote(r#"woo"wah""#), br#"woo'"wah"'"#);
     }
 
     #[test]
@@ -53,15 +53,15 @@ mod impl_fish {
 
     #[test]
     fn test_multiple_parts() {
-        assert_eq!(Fish::quote("\x00AABB"), b"\\x00'AABB'");
-        assert_eq!(Fish::quote("\x07A\x06B\x07"), b"\\a'A'\\x06'B'\\a");
-        assert_eq!(Fish::quote("AAA\x7F"), b"'AAA'\\x7F");
+        assert_eq!(Fish::quote("\x00AABB"), b"\\x00AABB");
+        assert_eq!(Fish::quote("\x07A\x06B\x07"), b"\\aA\\x06B\\a");
+        assert_eq!(Fish::quote("AAA\x7F"), b"AAA\\x7F");
         assert_eq!(Fish::quote("\x06\x06"), b"\\x06\\x06");
     }
 
     #[test]
     fn test_new_lines() {
-        assert_eq!(Fish::quote("A\nB"), b"'A\nB'");
+        assert_eq!(Fish::quote("A\nB"), b"A\\nB");
     }
 
     #[test]
@@ -75,7 +75,7 @@ mod impl_fish {
     fn test_escape_into_with_escapes() {
         let mut buffer = Vec::new();
         Fish::quote_into("-_=/,.+", &mut buffer);
-        assert_eq!(buffer, b"'-_=/,.+'");
+        assert_eq!(buffer, b"-_'=/,.+'");
     }
 
     #[test]
@@ -110,7 +110,7 @@ mod quote_ext {
         let mut buffer = Vec::from(b"Hello, ");
         buffer.push_quoted(Fish, "World, Bob, !@#$%^&*(){}[]");
         let string = String::from_utf8(buffer).unwrap(); // -> test failures are more readable.
-        assert_eq!(string, "Hello, 'World, Bob, !@#$%^&*(){}[]'");
+        assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
     }
 
     #[cfg(unix)]
@@ -121,14 +121,14 @@ mod quote_ext {
         let mut buffer: OsString = "Hello, ".into();
         buffer.push_quoted(Fish, "World, Bob, !@#$%^&*(){}[]");
         let string = buffer.into_string().unwrap(); // -> test failures are more readable.
-        assert_eq!(string, "Hello, 'World, Bob, !@#$%^&*(){}[]'");
+        assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
     }
 
     #[test]
     fn test_string_push_quoted_with_fish() {
         let mut string: String = "Hello, ".into();
         string.push_quoted(Fish, "World, Bob, !@#$%^&*(){}[]");
-        assert_eq!(string, "Hello, 'World, Bob, !@#$%^&*(){}[]'");
+        assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
     }
 
     #[test]
