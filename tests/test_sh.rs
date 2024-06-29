@@ -29,7 +29,7 @@ mod impl_sh {
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(Sh::quote("-_=/,.+"), b"'-_=/,.+'");
+        assert_eq!(Sh::quote("-_=/,.+"), b"$'-_=/,.+'");
     }
 
     #[test]
@@ -39,16 +39,16 @@ mod impl_sh {
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(Sh::quote(r#"woo'wah""#), br#"'woo\047wah"'"#);
+        assert_eq!(Sh::quote(r#"woo'wah""#), br#"$'woo\'wah"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(Sh::quote("\x07"), b"'\\a'");
-        assert_eq!(Sh::quote("\x00"), b"'\\000'");
-        assert_eq!(Sh::quote("\x06"), b"'\\006'");
-        assert_eq!(Sh::quote("\x7F"), b"'\x7F'");
-        assert_eq!(Sh::quote("\x1B"), b"'\\033'");
+        assert_eq!(Sh::quote("\x07"), b"$'\\a'");
+        assert_eq!(Sh::quote("\x00"), b"$'\\x00'");
+        assert_eq!(Sh::quote("\x06"), b"$'\\x06'");
+        assert_eq!(Sh::quote("\x7F"), b"$'\x7F'");
+        assert_eq!(Sh::quote("\x1B"), b"$'\\e'");
     }
 
     #[test]
@@ -62,7 +62,7 @@ mod impl_sh {
     fn test_quote_into_with_escapes() {
         let mut buffer = Vec::new();
         Sh::quote_into("-_=/,.+", &mut buffer);
-        assert_eq!(buffer, b"'-_=/,.+'");
+        assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
     #[test]
@@ -71,18 +71,19 @@ mod impl_sh {
         use std::os::unix::ffi::{OsStrExt, OsStringExt};
         use std::process::Command;
 
-        // In Bash it doesn't seem possible to roundtrip NUL, but in the Bourne
-        // shell, or whatever is masquerading as `sh`, it seems to be fine.
-        let string: OsString = OsString::from_vec((u8::MIN..=u8::MAX).collect());
-        let mut script = b"echo ".to_vec();
+        // It doesn't seem possible to roundtrip NUL, probably because it is the
+        // string terminator character in C.
+        let string: OsString = OsString::from_vec((1..=u8::MAX).collect());
+        // NOTE: Do NOT use `echo` here; it interprets escapes with no way to
+        // disable that behaviour (unlike the `echo` builtin in Bash, for
+        // example, which accepts a `-E` flag).
+        let mut script = b"printf '%s' ".to_vec();
         Sh::quote_into(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         for bin in util::find_bins("sh") {
             let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
-            let mut result = output.stdout;
-            result.resize(result.len() - 1, 0); // Remove trailing newline.
-            let result = OsString::from_vec(result);
-            assert_eq!(result, string);
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, string);
         }
     }
 }
@@ -98,7 +99,7 @@ mod quote_ext {
         let mut buffer = Vec::from(b"Hello, ");
         buffer.push_quoted(Sh, "World, Bob, !@#$%^&*(){}[]");
         let string = String::from_utf8(buffer).unwrap(); // -> test failures are more readable.
-        assert_eq!(string, "Hello, 'World, Bob, !@#$%^&*(){}[]'");
+        assert_eq!(string, "Hello, $'World, Bob, !@#$%^&*(){}[]'");
     }
 
     #[cfg(unix)]
@@ -109,31 +110,29 @@ mod quote_ext {
         let mut buffer: OsString = "Hello, ".into();
         buffer.push_quoted(Sh, "World, Bob, !@#$%^&*(){}[]");
         let string = buffer.into_string().unwrap(); // -> test failures are more readable.
-        assert_eq!(string, "Hello, 'World, Bob, !@#$%^&*(){}[]'");
+        assert_eq!(string, "Hello, $'World, Bob, !@#$%^&*(){}[]'");
     }
 
     #[test]
     fn test_string_push_quoted_with_bash() {
         let mut string: String = "Hello, ".into();
         string.push_quoted(Sh, "World, Bob, !@#$%^&*(){}[]");
-        assert_eq!(string, "Hello, 'World, Bob, !@#$%^&*(){}[]'");
+        assert_eq!(string, "Hello, $'World, Bob, !@#$%^&*(){}[]'");
     }
 
     #[test]
     fn test_string_push_quoted_roundtrip() {
         use std::process::Command;
 
-        let mut script = "echo ".to_owned();
-        // In Bash it doesn't seem possible to roundtrip NUL, but in the Bourne
-        // shell, or whatever is masquerading as `sh`, it seems to be fine.
-        let string: Vec<_> = (u8::MIN..=u8::MAX).collect();
+        let mut script = "printf '%s' ".to_owned();
+        // It doesn't seem possible to roundtrip NUL, probably because it is the
+        // string terminator character in C.
+        let string: Vec<_> = (1..=u8::MAX).collect();
         script.push_quoted(Sh, &string);
-        // Test with every version of `bash` we find on `PATH`.
+        // Test with every version of `sh` we find on `PATH`.
         for bin in util::find_bins("sh") {
             let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
-            let mut result = output.stdout;
-            result.resize(result.len() - 1, 0); // Remove trailing newline.
-            assert_eq!(result, string);
+            assert_eq!(output.stdout, string);
         }
     }
 }

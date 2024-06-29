@@ -1,4 +1,4 @@
-use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
@@ -66,7 +66,7 @@ impl Sh {
     ///
     /// This will return one of the following:
     /// - The string as-is, if no quoting is necessary.
-    /// - A quoted string containing ANSI-C-like escapes, like `'foo\nbar'`.
+    /// - A quoted string containing ANSI-C-like escapes, like `$'foo\nbar'`.
     ///
     /// See [`quote_into`](#method.quote_into) for a variant that extends an
     /// existing `Vec` instead of allocating a new one.
@@ -76,21 +76,23 @@ impl Sh {
     /// ```
     /// # use shell_quote::{Sh, Quoter};
     /// assert_eq!(Sh::quote("foobar"), b"foobar");
-    /// assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
+    /// assert_eq!(Sh::quote("foo bar"), b"$'foo bar'");
     /// ```
     ///
     pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
-        if let Some(esc) = escape_prepare(sin.bytes) {
-            // This may be a pointless optimisation, but calculate the memory
-            // needed to avoid reallocations as we construct the output. Since
-            // we know we're going to use single quotes, we also add 2 bytes.
-            let size: usize = esc.iter().map(escape_size).sum();
-            let mut sout = Vec::with_capacity(size + 2);
-            escape_chars(esc, &mut sout); // Do the work.
-            sout
-        } else {
-            sin.bytes.into()
+        match escape_prepare(sin.bytes) {
+            Prepared::Empty => vec![b'\'', b'\''],
+            Prepared::Inert => sin.bytes.into(),
+            Prepared::Escape(esc) => {
+                // This may be a pointless optimisation, but calculate the
+                // memory needed to avoid reallocations as we construct the
+                // output. Since we'll generate a $'…' string, add 3 bytes.
+                let size: usize = esc.iter().map(escape_size).sum();
+                let mut sout = Vec::with_capacity(size + 3);
+                escape_chars(esc, &mut sout); // Do the work.
+                sout
+            }
         }
     }
 
@@ -106,56 +108,64 @@ impl Sh {
     /// Sh::quote_into("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
     /// Sh::quote_into("foo bar", &mut buf);
-    /// assert_eq!(buf, b"foobar 'foo bar'");
+    /// assert_eq!(buf, b"foobar $'foo bar'");
     /// ```
     ///
     pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         let sin: Quotable<'a> = s.into();
-        if let Some(esc) = escape_prepare(sin.bytes) {
-            // This may be a pointless optimisation, but calculate the memory
-            // needed to avoid reallocations as we construct the output. Since
-            // we know we're going to use single quotes, we also add 2 bytes.
-            let size: usize = esc.iter().map(escape_size).sum();
-            sout.reserve(size + 2);
-            escape_chars(esc, sout); // Do the work.
-        } else {
-            sout.extend(sin.bytes);
+        match escape_prepare(sin.bytes) {
+            Prepared::Empty => sout.extend(b"''"),
+            Prepared::Inert => sout.extend(sin.bytes),
+            Prepared::Escape(esc) => {
+                // This may be a pointless optimisation, but calculate the
+                // memory needed to avoid reallocations as we construct the
+                // output. Since we'll generate a $'…' string, add 3 bytes.
+                let size: usize = esc.iter().map(escape_size).sum();
+                sout.reserve(size + 2);
+                escape_chars(esc, sout); // Do the work.
+            }
         }
     }
 }
 
 // ----------------------------------------------------------------------------
 
-fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
+enum Prepared {
+    Empty,
+    Inert,
+    Escape(Vec<Char>),
+}
+
+fn escape_prepare(sin: &[u8]) -> Prepared {
     let esc: Vec<_> = sin.iter().map(Char::from).collect();
     // An optimisation: if the string is not empty and contains only "safe"
     // characters we can avoid further work.
     if esc.is_empty() {
-        Some(esc)
+        Prepared::Empty
     } else if esc.iter().all(Char::is_inert) {
-        None
+        Prepared::Inert
     } else {
-        Some(esc)
+        Prepared::Escape(esc)
     }
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
     // Push a Bourne-style '...' escaped string into `sout`.
-    sout.extend(b"'");
+    sout.extend(b"$'");
     for mode in esc {
         use Char::*;
         match mode {
             Bell => sout.extend(b"\\a"),
             Backspace => sout.extend(b"\\b"),
-            Escape => sout.extend(b"\\033"),
+            Escape => sout.extend(b"\\e"),
             FormFeed => sout.extend(b"\\f"),
             NewLine => sout.extend(b"\\n"),
             CarriageReturn => sout.extend(b"\\r"),
             HorizontalTab => sout.extend(b"\\t"),
             VerticalTab => sout.extend(b"\\v"),
-            Control(ch) => sout.extend(format!("\\{:03o}", ch).bytes()),
+            Control(ch) => sout.extend(u8_to_hex_escape(ch)),
             Backslash => sout.extend(b"\\\\"),
-            SingleQuote => sout.extend(b"\\047"),
+            SingleQuote => sout.extend(b"\\'"),
             DoubleQuote => sout.extend(b"\""),
             Delete => sout.push(0x7F),
             PrintableInert(ch) => sout.push(ch),

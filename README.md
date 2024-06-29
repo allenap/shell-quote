@@ -29,7 +29,7 @@ assert_eq!(Bash::quote("foobar"), b"foobar");
 assert_eq!(Sh::quote("foobar"), b"foobar");
 assert_eq!(Fish::quote("foobar"), b"foobar");
 assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
-assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
+assert_eq!(Sh::quote("foo bar"), b"$'foo bar'");
 assert_eq!(Fish::quote("foo bar"), b"foo' bar'");
 ```
 
@@ -41,7 +41,7 @@ use shell_quote::{Bash, Sh, Fish, QuoteRefExt};
 let quoted: Vec<u8> = "foo bar".quoted(Bash);
 assert_eq!(quoted, b"$'foo bar'");
 let quoted: Vec<u8> = "foo bar".quoted(Sh);
-assert_eq!(quoted, b"'foo bar'");
+assert_eq!(quoted, b"$'foo bar'");
 let quoted: Vec<u8> = "foo bar".quoted(Fish);
 assert_eq!(quoted, b"foo' bar'");
 ```
