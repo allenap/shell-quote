@@ -148,8 +148,8 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             HorizontalTab => push_literal(Outside, b"\\t"),
             VerticalTab => push_literal(Outside, b"\\v"),
             Control(ch) => push_literal(Outside, &u8_to_hex_escape(ch)),
-            Backslash => push_literal(Inside, b"\\\\"),
-            SingleQuote => push_literal(Inside, b"\\'"),
+            Backslash => push_literal(Whatever, b"\\\\"),
+            SingleQuote => push_literal(Whatever, b"\\'"),
             DoubleQuote => push_literal(Inside, b"\""),
             Delete => push_literal(Outside, b"\\x7F"),
             PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
@@ -158,10 +158,6 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
         }
     }
     if inside_quotes_now {
-        if sout.last() == Some(&b'\'') {
-            sout.pop(); // Remove trailing quote.
-        } else {
-            sout.push(b'\'');
-        }
+        sout.push(b'\'');
     }
 }

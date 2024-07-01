@@ -40,6 +40,7 @@ mod impl_fish {
     #[test]
     fn test_basic_escapes() {
         assert_eq!(Fish::quote(r#"woo"wah""#), br#"woo'"wah"'"#);
+        assert_eq!(Fish::quote(r#"'"#), br#"\'"#);
     }
 
     #[test]
