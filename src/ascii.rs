@@ -69,6 +69,29 @@ impl Char {
     pub fn is_inert(&self) -> bool {
         matches!(self, Char::PrintableInert(_))
     }
+
+    #[inline]
+    pub fn code(&self) -> u8 {
+        use Char::*;
+        match *self {
+            Bell => BEL,
+            Backspace => BS,
+            Escape => ESC,
+            FormFeed => FF,
+            NewLine => LF,
+            CarriageReturn => CR,
+            HorizontalTab => TAB,
+            VerticalTab => VT,
+            Control(ch) => ch,
+            Backslash => b'\\',
+            SingleQuote => b'\'',
+            DoubleQuote => b'"',
+            Delete => DEL,
+            PrintableInert(ch) => ch,
+            Printable(ch) => ch,
+            Extended(ch) => ch,
+        }
+    }
 }
 
 const BEL: u8 = 0x07; // -> \a

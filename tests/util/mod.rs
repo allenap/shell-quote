@@ -1,3 +1,6 @@
+/// Return all the paths to binaries on `PATH` with `name`.
+///
+/// If none are found, return only `name`, bare.
 pub(crate) fn find_bins<P: AsRef<std::path::Path>>(name: P) -> Vec<std::path::PathBuf> {
     let name = name.as_ref();
     match std::env::var_os("PATH") {
