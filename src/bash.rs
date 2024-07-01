@@ -105,8 +105,7 @@ impl Bash {
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
-                // output. Since we know we're going to use $'...' notation, we
-                // also add 3 bytes.
+                // output. Since we'll generate a $'…' string, add 3 bytes.
                 let size: usize = esc.iter().map(escape_size).sum();
                 let mut sout = Vec::with_capacity(size + 3);
                 escape_chars(esc, &mut sout); // Do the work.
@@ -138,11 +137,12 @@ impl Bash {
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
-                // output. Since we know we're going to use $'...' notation, we
-                // also add 3 bytes.
+                // output. Since we'll generate a $'…' string, add 3 bytes.
                 let size: usize = esc.iter().map(escape_size).sum();
                 sout.reserve(size + 3);
+                let cap = sout.capacity();
                 escape_chars(esc, sout); // Do the work.
+                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
             }
         }
     }
