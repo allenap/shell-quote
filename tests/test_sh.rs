@@ -31,7 +31,7 @@ pub(crate) fn invoke_zsh_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output>
 
 // -- impl Sh -----------------------------------------------------------------
 
-mod impl_sh {
+mod sh_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
 

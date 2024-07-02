@@ -2,7 +2,7 @@ mod util;
 
 // -- impl Fish ---------------------------------------------------------------
 
-mod impl_fish {
+mod fish_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
 

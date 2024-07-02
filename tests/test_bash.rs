@@ -2,7 +2,7 @@ mod util;
 
 // -- impl Bash ---------------------------------------------------------------
 
-mod impl_bash {
+mod bash_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
