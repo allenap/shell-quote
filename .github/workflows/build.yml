@@ -14,6 +14,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       # Make sure we have all the target shells installed.
       - run: sudo apt-get install -y bash dash fish zsh
+      - run: bash --version
+      - run: dash -c env # dash doesn't have a `--version` flag.
+      - run: fish --version
+      - run: zsh --version
       # Test in debug mode first.
       - run: cargo test
       # Test in release mode too, to defend against, for example, use of
