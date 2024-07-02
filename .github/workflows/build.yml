@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
+      # Make sure we have all the target shells installed.
+      - run: sudo apt-get install -y bash dash fish zsh
+      # Test in debug mode first.
       - run: cargo test
       # Test in release mode too, to defend against, for example, use of
       # `debug_assert!` with side effects, i.e. those side effects won't happen

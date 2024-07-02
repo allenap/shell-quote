@@ -2,6 +2,18 @@ use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
+/// # Compatibility
+///
+/// Quoted/escaped strings produced by [`Sh`] also work in Bash, Dash, and Z
+/// Shell.
+///
+/// The quoted/escaped strings it produces are different to those coming from
+/// [`Bash`][`crate::Bash`] or its alias [`Zsh`][`crate::Zsh`]. Those strings
+/// won't work in a pure `/bin/sh` shell like Dash, but they are better for
+/// humans to read, to copy and paste. For example, [`Sh`] does not (and cannot)
+/// escape control characters, but characters like `BEL` and `TAB` (and others)
+/// are represented by `\\a` and `\\t` respectively by [`Bash`][`crate::Bash`].
+///
 /// # Notes
 ///
 /// I wasn't able to find any definitive statement of exactly how Bourne Shell
@@ -22,33 +34,33 @@ use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 ///
 /// From dash(1):
 ///
-/// > Quoting
+/// > ## Quoting
 /// >
 /// >   Quoting is used to remove the special meaning of certain characters or
 /// >   words to the shell, such as operators, whitespace, or keywords.  There
 /// >   are three types of quoting: matched single quotes, matched double
 /// >   quotes, and backslash.
 /// >
-/// > Backslash
+/// > ## Backslash
 /// >
 /// >   A backslash preserves the literal meaning of the following character,
 /// >   with the exception of ⟨newline⟩.  A backslash preceding a ⟨newline⟩ is
 /// >   treated as a line continuation.
 /// >
-/// > Single Quotes
+/// > ## Single Quotes
 /// >
 /// >   Enclosing characters in single quotes preserves the literal meaning of
 /// >   all the characters (except single quotes, making it impossible to put
 /// >   single-quotes in a single-quoted string).
 /// >
-/// > Double Quotes
+/// > ## Double Quotes
 /// >
 /// >   Enclosing characters within double quotes preserves the literal meaning
 /// >   of all characters except dollarsign ($), backquote (`), and backslash
 /// >   (\).  The backslash inside double quotes is historically weird, and
 /// >   serves to quote only the following characters:
 /// >
-/// >   $ ` " \ <newline>.
+/// >     $ ` " \ <newline>.
 /// >
 /// >   Otherwise it remains literal.
 ///

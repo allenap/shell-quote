@@ -3,7 +3,10 @@ mod util;
 // -- impl Fish ---------------------------------------------------------------
 
 mod impl_fish {
-    use super::util;
+    use std::ffi::OsString;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    use super::util::{find_bins, invoke_shell};
     use shell_quote::Fish;
 
     #[test]
@@ -81,19 +84,15 @@ mod impl_fish {
 
     #[test]
     fn test_roundtrip() {
-        use std::ffi::OsString;
-        use std::os::unix::ffi::{OsStrExt, OsStringExt};
-        use std::process::Command;
-
         let mut script = b"echo -n ".to_vec();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
-        // string terminator character in C. To me, seems like a bug in Fish.
+        // string terminator character in C.
         let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
         Fish::quote_into(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
-        // Test with every version of `Fish` we find on `PATH`.
-        for bin in util::find_bins("fish") {
-            let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
+        // Test with every version of `fish` we find on `PATH`.
+        for bin in find_bins("fish") {
+            let output = invoke_shell(&bin, &script).unwrap();
             let result = OsString::from_vec(output.stdout);
             assert_eq!(result, string);
         }
@@ -102,8 +101,8 @@ mod impl_fish {
 
 // -- QuoteExt ----------------------------------------------------------------
 
-mod quote_ext {
-    use super::util;
+mod fish_quote_ext {
+    use super::util::{find_bins, invoke_shell};
     use shell_quote::{Fish, QuoteExt};
 
     #[test]
@@ -134,16 +133,14 @@ mod quote_ext {
 
     #[test]
     fn test_string_push_quoted_roundtrip() {
-        use std::process::Command;
-
         let mut script = "echo -n ".to_owned();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
-        // string terminator character in C. To me, seems like a bug in Fish.
+        // string terminator character in C.
         let string: Vec<_> = (1u8..=u8::MAX).collect();
         script.push_quoted(Fish, &string);
-        // Test with every version of `Fish` we find on `PATH`.
-        for bin in util::find_bins("fish") {
-            let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
+        // Test with every version of `fish` we find on `PATH`.
+        for bin in find_bins("fish") {
+            let output = invoke_shell(&bin, script.as_ref()).unwrap();
             assert_eq!(output.stdout, string);
         }
     }

@@ -1,3 +1,5 @@
+mod util;
+
 // -- Helpers -----------------------------------------------------------------
 
 use std::{
@@ -8,17 +10,7 @@ use std::{
     process::{Command, Output},
 };
 
-mod util;
-
-fn invoke_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
-    Command::new(bin).arg("-c").arg(script).output()
-}
-
-fn invoke_dash(bin: &Path, script: &OsStr) -> io::Result<Output> {
-    Command::new(bin).arg("-c").arg(script).output()
-}
-
-fn invoke_bash_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
+pub(crate) fn invoke_bash_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
     Command::new(bin)
         .arg0("sh")
         .arg("--posix")
@@ -27,7 +19,7 @@ fn invoke_bash_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
         .output()
 }
 
-fn invoke_zsh_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
+pub(crate) fn invoke_zsh_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
     Command::new(bin)
         .arg0("sh")
         .arg("--emulate")
@@ -40,8 +32,11 @@ fn invoke_zsh_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output> {
 // -- impl Sh -----------------------------------------------------------------
 
 mod impl_sh {
-    use super::util;
-    use super::{invoke_bash_as_sh, invoke_dash, invoke_sh, invoke_zsh_as_sh};
+    use std::ffi::OsString;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    use super::util::{find_bins, invoke_shell};
+    use super::{invoke_bash_as_sh, invoke_zsh_as_sh};
     use shell_quote::Sh;
 
     #[test]
@@ -103,51 +98,86 @@ mod impl_sh {
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
-    #[test]
-    fn test_roundtrip() {
-        use std::ffi::OsString;
-        use std::os::unix::ffi::{OsStrExt, OsStringExt};
-
+    fn script() -> (OsString, OsString) {
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
-        let string: OsString = OsString::from_vec((1..=u8::MAX).collect());
-        // NOTE: Do NOT use `echo` here; it interprets escapes with no way to
-        // disable that behaviour (unlike the `echo` builtin in Bash, for
-        // example, which accepts a `-E` flag).
-        let mut script = b"printf '%s' ".to_vec();
-        Sh::quote_into(string.as_bytes(), &mut script);
+        let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
+        // NOTE: Do NOT use `echo` here; in most/all shells it interprets
+        // escapes with no way to disable that behaviour (unlike the `echo`
+        // builtin in Bash, for example, which accepts a `-E` flag). Using
+        // `printf %s` seems to do the right thing in most shells, i.e. it does
+        // not interpret the arguments in any way.
+        let mut script = b"printf %s ".to_vec();
+        Sh::quote_into(input.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
+        (input, script)
+    }
 
-        for bin in util::find_bins("sh") {
-            let output = invoke_sh(&bin, &script).unwrap();
+    #[test]
+    fn test_roundtrip_sh() {
+        let (input, script) = script();
+        for bin in find_bins("sh") {
+            let output = invoke_shell(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
-            assert_eq!(observed, string);
+            assert_eq!(observed, input);
         }
+    }
 
-        for bin in util::find_bins("dash") {
-            let output = invoke_dash(&bin, &script).unwrap();
+    #[test]
+    fn test_roundtrip_dash() {
+        let (input, script) = script();
+        for bin in find_bins("dash") {
+            let output = invoke_shell(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
-            assert_eq!(observed, string);
+            assert_eq!(observed, input);
         }
+    }
 
-        for bin in util::find_bins("bash") {
+    #[test]
+    fn test_roundtrip_bash() {
+        let (input, script) = script();
+        for bin in find_bins("bash") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_bash_as_sh() {
+        let (input, script) = script();
+        for bin in find_bins("bash") {
             let output = invoke_bash_as_sh(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
-            assert_eq!(observed, string);
+            assert_eq!(observed, input);
         }
+    }
 
-        for bin in util::find_bins("zsh") {
+    #[test]
+    fn test_roundtrip_zsh() {
+        let (input, script) = script();
+        for bin in find_bins("zsh") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_zsh_as_sh() {
+        let (input, script) = script();
+        for bin in find_bins("zsh") {
             let output = invoke_zsh_as_sh(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
-            assert_eq!(observed, string);
+            assert_eq!(observed, input);
         }
     }
 }
 
 // -- QuoteExt ----------------------------------------------------------------
 
-mod quote_ext {
-    use super::util;
+mod sh_quote_ext {
+    use super::util::{find_bins, invoke_shell};
     use shell_quote::{QuoteExt, Sh};
 
     #[test]
@@ -178,16 +208,14 @@ mod quote_ext {
 
     #[test]
     fn test_string_push_quoted_roundtrip() {
-        use std::process::Command;
-
-        let mut script = "printf '%s' ".to_owned();
+        let mut script = "printf %s ".to_owned();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let string: Vec<_> = (1..=u8::MAX).collect();
         script.push_quoted(Sh, &string);
         // Test with every version of `sh` we find on `PATH`.
-        for bin in util::find_bins("sh") {
-            let output = Command::new(bin).arg("-c").arg(&script).output().unwrap();
+        for bin in find_bins("sh") {
+            let output = invoke_shell(&bin, script.as_ref()).unwrap();
             assert_eq!(output.stdout, string);
         }
     }

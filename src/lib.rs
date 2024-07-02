@@ -13,6 +13,14 @@ pub use bash::Bash;
 pub use fish::Fish;
 pub use sh::Sh;
 
+/// Dash accepts the same quoted/escaped strings as `/bin/sh` – indeed, on many
+/// systems, `dash` _is_ `/bin/sh` – hence this is an alias for [`Sh`].
+pub type Dash = Sh;
+
+/// Zsh accepts the same quoted/escaped strings as Bash, hence this is an alias
+/// for [`Bash`].
+pub type Zsh = Bash;
+
 /// Extension trait for pushing shell quoted byte slices, e.g. `&[u8]`, [`&str`]
 /// – anything that's [`Quotable`] – into byte container types like [`Vec<u8>`],
 /// [`String`], [`OsString`] on Unix, and [`bstr::BString`] if it's enabled

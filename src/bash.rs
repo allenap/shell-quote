@@ -2,12 +2,15 @@ use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable,
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
+/// # Compatibility
+///
+/// Quoted/escaped strings produced by [`Bash`] work in both Bash and Z Shell.
+///
 /// # ⚠️ Warning
 ///
 /// It is _possible_ to encode NUL in a Bash string, but Bash appears to then
-/// truncate the rest of the string after that point, likely because NUL is the
-/// C string terminator. This appears to be a bug in Bash or at least a serious
-/// limitation.
+/// truncate the rest of the string after that point **or** sometimes it filters
+/// the NUL out. It's not yet clear to me when/why each behaviour is chosen.
 ///
 /// If you're quoting UTF-8 content this may not be a problem since there is
 /// only one code point – the null character itself – that will ever produce a
