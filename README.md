@@ -6,10 +6,8 @@ Bash's _word splitting_), paths (Bash's _pathname expansion_), shell
 metacharacters, function calls, or other syntax. This is frequently not as
 simple as wrapping a string in quotes.
 
-For now this package implements escaping for `/bin/sh`-like shells including
-[Dash][dash], [GNU Bash][gnu-bash], [Z Shell][z-shell], and [fish][]. Please
-read the documentation for each module to learn about some limitations and
-caveats.
+This package implements escaping for [GNU Bash][gnu-bash], [Z Shell][z-shell],
+[fish][], and `/bin/sh`-like shells including [Dash][dash].
 
 [dash]: https://en.wikipedia.org/wiki/Almquist_shell#dash
 [gnu-bash]: https://www.gnu.org/software/bash/
@@ -28,16 +26,22 @@ enough that you must use [`Fish`] for fish scripts.
 
 ## Examples
 
-When quoting using raw bytes it can be convenient to call [`Bash`]'s, [`Sh`]'s,
-and [`Fish`]'s associated functions directly:
+When quoting using raw bytes it can be convenient to call [`Sh`]'s, [`Dash`]'s,
+[`Bash`]'s, [`Fish`]'s, and [`Zsh`]'s associated functions directly:
 
 ```rust
-use shell_quote::{Bash, Sh, Fish};
-assert_eq!(Bash::quote("foobar"), b"foobar");
+use shell_quote::{Bash, Dash, Fish, Sh, Zsh};
+// No quoting is necessary for simple strings.
 assert_eq!(Sh::quote("foobar"), b"foobar");
+assert_eq!(Dash::quote("foobar"), b"foobar");  // `Dash` is an alias for `Sh`
+assert_eq!(Bash::quote("foobar"), b"foobar");
+assert_eq!(Zsh::quote("foobar"), b"foobar");   // `Zsh` is an alias for `Bash`
 assert_eq!(Fish::quote("foobar"), b"foobar");
-assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
+// In all shells, quoting is necessary for strings with spaces.
 assert_eq!(Sh::quote("foo bar"), b"foo' bar'");
+assert_eq!(Dash::quote("foo bar"), b"foo' bar'");
+assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
+assert_eq!(Zsh::quote("foo bar"), b"$'foo bar'");
 assert_eq!(Fish::quote("foo bar"), b"foo' bar'");
 ```
 

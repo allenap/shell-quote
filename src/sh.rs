@@ -60,7 +60,9 @@ use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 /// >   (\).  The backslash inside double quotes is historically weird, and
 /// >   serves to quote only the following characters:
 /// >
-/// >     $ ` " \ <newline>.
+/// >   ```text
+/// >   $ ` " \ <newline>.
+/// >   ```
 /// >
 /// >   Otherwise it remains literal.
 ///

@@ -140,9 +140,10 @@ pub trait Quoter: quoter::QuoterSealed {}
 
 /// A string of bytes that can be quoted/escaped.
 ///
-/// This is used by many methods in this crate as a generic `Into<Quotable>`
-/// constraint. Why not accept [`AsRef<[u8]>`] instead? The ergonomics of that
-/// approach were not so good. For example, quoting [`OsString`]/[`OsStr`] and
+/// This is used by many methods in this crate as a generic
+/// [`Into<Quotable>`][`Into`] constraint. Why not accept
+/// [`AsRef<[u8]>`][`AsRef`] instead? The ergonomics of that approach were not
+/// so good. For example, quoting [`OsString`]/[`OsStr`] and
 /// [`PathBuf`]/[`Path`] didn't work in a natural way.
 pub struct Quotable<'a> {
     pub(crate) bytes: &'a [u8],
