@@ -1,3 +1,5 @@
+#![cfg(feature = "bash")]
+
 use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.

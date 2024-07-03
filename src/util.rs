@@ -1,17 +1,9 @@
-/// Represent a single byte as a 2-byte hex number.
-#[allow(unused)]
-pub(crate) fn u8_to_hex(ch: u8) -> [u8; 2] {
-    const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
-    [
-        HEX_DIGITS[(ch >> 4) as usize],
-        HEX_DIGITS[(ch & 0xF) as usize],
-    ]
-}
-
 /// Escape a byte as a 4-byte hex escape sequence.
 ///
 /// The `\\xHH` format (backslash, a literal "x", two hex characters) is
 /// understood by many shells.
+#[inline]
+#[cfg(feature = "bash")]
 pub(crate) fn u8_to_hex_escape(ch: u8) -> [u8; 4] {
     const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
     [
@@ -34,6 +26,8 @@ pub(crate) fn u8_to_hex_escape(ch: u8) -> [u8; 4] {
 ///
 /// [release notes]: https://github.com/fish-shell/fish-shell/releases/tag/3.6.0
 ///
+#[inline]
+#[cfg(feature = "fish")]
 pub(crate) fn u8_to_hex_escape_uppercase_x(ch: u8) -> [u8; 4] {
     const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
     [
@@ -46,23 +40,23 @@ pub(crate) fn u8_to_hex_escape_uppercase_x(ch: u8) -> [u8; 4] {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn test_u8_to_hex() {
+    #[cfg(feature = "bash")]
+    fn test_u8_to_hex_escape() {
         for ch in u8::MIN..=u8::MAX {
-            let expected = format!("{ch:02X}");
-            let observed = u8_to_hex(ch);
+            let expected = format!("\\x{ch:02X}");
+            let observed = super::u8_to_hex_escape(ch);
             let observed = std::str::from_utf8(&observed).unwrap();
             assert_eq!(observed, &expected);
         }
     }
 
     #[test]
-    fn test_u8_to_hex_escape() {
+    #[cfg(feature = "fish")]
+    fn test_u8_to_hex_escape_uppercase_x() {
         for ch in u8::MIN..=u8::MAX {
-            let expected = format!("\\x{ch:02X}");
-            let observed = u8_to_hex_escape(ch);
+            let expected = format!("\\X{ch:02X}");
+            let observed = super::u8_to_hex_escape_uppercase_x(ch);
             let observed = std::str::from_utf8(&observed).unwrap();
             assert_eq!(observed, &expected);
         }

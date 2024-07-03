@@ -1,4 +1,12 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(
+    all(
+        feature = "bstr",
+        feature = "bash",
+        feature = "fish",
+        feature = "sh",
+    ),
+    doc = include_str!("../README.md")
+)]
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
@@ -9,17 +17,22 @@ mod fish;
 mod sh;
 pub(crate) mod util;
 
+#[cfg(feature = "bash")]
 pub use bash::Bash;
+#[cfg(feature = "fish")]
 pub use fish::Fish;
+#[cfg(feature = "sh")]
 pub use sh::Sh;
 
 /// Dash accepts the same quoted/escaped strings as `/bin/sh` – indeed, on many
 /// systems, `dash` _is_ `/bin/sh` – hence this is an alias for [`Sh`].
-pub type Dash = Sh;
+#[cfg(feature = "sh")]
+pub type Dash = sh::Sh;
 
 /// Zsh accepts the same quoted/escaped strings as Bash, hence this is an alias
 /// for [`Bash`].
-pub type Zsh = Bash;
+#[cfg(feature = "bash")]
+pub type Zsh = bash::Bash;
 
 /// Extension trait for pushing shell quoted byte slices, e.g. `&[u8]`, [`&str`]
 /// – anything that's [`Quotable`] – into byte container types like [`Vec<u8>`],
@@ -146,6 +159,10 @@ pub trait Quoter: quoter::QuoterSealed {}
 /// so good. For example, quoting [`OsString`]/[`OsStr`] and
 /// [`PathBuf`]/[`Path`] didn't work in a natural way.
 pub struct Quotable<'a> {
+    #[cfg_attr(
+        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        allow(unused)
+    )]
     pub(crate) bytes: &'a [u8],
 }
 

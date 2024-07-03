@@ -1,3 +1,5 @@
+#![cfg(any(feature = "bash", feature = "fish", feature = "sh"))]
+
 //! Scanner for ASCII control codes, shell metacharacters, printable characters,
 //! and extended codes, i.e. classify each byte in a stream according to where
 //! it appears in extended ASCII.
@@ -71,6 +73,7 @@ impl Char {
     }
 
     #[inline]
+    #[cfg(feature = "sh")]
     pub fn code(&self) -> u8 {
         use Char::*;
         match *self {
@@ -106,12 +109,11 @@ const DEL: u8 = 0x7F;
 
 #[cfg(test)]
 mod tests {
-    use super::Char;
-
     #[test]
+    #[cfg(feature = "sh")]
     fn test_code() {
         for ch in u8::MIN..=u8::MAX {
-            let char = Char::from(ch);
+            let char = super::Char::from(ch);
             assert_eq!(ch, char.code());
         }
     }

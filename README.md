@@ -24,6 +24,23 @@ Inspired by the Haskell [shell-escape][] package.
 `/bin/sh`-like shells like Dash. However, fish's quoting rules are different
 enough that you must use [`Fish`] for fish scripts.
 
+## Feature flags
+
+The following are all enabled by default:
+
+- `bstr`: Support [`bstr::BStr`] and [`bstr::BString`].
+- `bash`: Support [Bash][gnu-bash] and [Z Shell][z-shell].
+- `fish`: Support [fish][].
+- `sh`: Support `/bin/sh`-like shells including [Dash][dash].
+
+To limit support to specific shells, you must disable this crate's default
+features in `Cargo.toml` and re-enable those you want. For example:
+
+```toml
+[dependencies]
+shell-quote = { version = "*", default-features = false, features = ["bash"] }
+```
+
 ## Examples
 
 When quoting using raw bytes it can be convenient to call [`Sh`]'s, [`Dash`]'s,
