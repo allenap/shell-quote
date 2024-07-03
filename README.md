@@ -79,9 +79,9 @@ Or the extension trait [`QuoteExt`] for pushing quoted strings into a buffer:
 
 ```rust
 use shell_quote::{Bash, QuoteExt};
-let mut script: String = "echo ".into();
+let mut script: bstr::BString = "echo ".into();
 script.push_quoted(Bash, "foo bar");
-script.push_str(" > ");
+script.extend(b" > ");
 script.push_quoted(Bash, "/path/(to)/[output]");
 assert_eq!(script, "echo $'foo bar' > $'/path/(to)/[output]'");
 ```

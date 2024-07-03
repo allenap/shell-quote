@@ -4,6 +4,7 @@
         "backquote",
         "bindir",
         "bstr",
+        "bstring",
         "Clippy",
         "dollarsign",
         "dtolnay",

@@ -179,7 +179,6 @@ mod sh_impl {
 // -- QuoteExt ----------------------------------------------------------------
 
 mod sh_quote_ext {
-    use super::util::{find_bins, invoke_shell};
     use shell_quote::{QuoteExt, Sh};
 
     #[test]
@@ -201,23 +200,28 @@ mod sh_quote_ext {
         assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
     }
 
+    #[cfg(feature = "bstr")]
     #[test]
-    fn test_string_push_quoted() {
-        let mut string: String = "Hello, ".into();
+    fn test_bstring_push_quoted() {
+        let mut string: bstr::BString = "Hello, ".into();
         string.push_quoted(Sh, "World, Bob, !@#$%^&*(){}[]");
         assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
     }
 
+    #[cfg(feature = "bstr")]
     #[test]
-    fn test_string_push_quoted_roundtrip() {
-        let mut script = "printf %s ".to_owned();
+    fn test_bstring_push_quoted_roundtrip() {
+        use super::util::{find_bins, invoke_shell};
+        use bstr::{BString, ByteSlice};
+        let mut script: BString = "printf %s ".into();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let string: Vec<_> = (1..=u8::MAX).collect();
         script.push_quoted(Sh, &string);
+        let script = script.to_os_str().unwrap();
         // Test with every version of `sh` we find on `PATH`.
         for bin in find_bins("sh") {
-            let output = invoke_shell(&bin, script.as_ref()).unwrap();
+            let output = invoke_shell(&bin, script).unwrap();
             assert_eq!(output.stdout, string);
         }
     }
