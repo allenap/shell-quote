@@ -84,7 +84,9 @@ mod fish_impl {
 
     #[test]
     fn test_roundtrip() {
-        let mut script = b"echo -n ".to_vec();
+        // Unlike many/most other shells, `echo` is safe here because backslash
+        // escapes are _not_ interpreted by default.
+        let mut script = b"echo -n -- ".to_vec();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
@@ -133,7 +135,9 @@ mod fish_quote_ext {
 
     #[test]
     fn test_string_push_quoted_roundtrip() {
-        let mut script = "echo -n ".to_owned();
+        // Unlike many/most other shells, `echo` is safe here because backslash
+        // escapes are _not_ interpreted by default.
+        let mut script = "echo -n -- ".to_owned();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let string: Vec<_> = (1u8..=u8::MAX).collect();
