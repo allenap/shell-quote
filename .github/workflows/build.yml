@@ -10,14 +10,26 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       # Make sure we have all the target shells installed.
       - run: sudo apt-get install -y bash dash fish zsh
-      - run: bash --version
-      - run: dash -c env # dash doesn't have a `--version` flag.
-      - run: fish --version
-      - run: zsh --version
+      # Record shell versions. Almost unbelievably, it's not possible to get the
+      # version of Dash from `dash` itself, so we skip it here. Since `sh` might
+      # be `dash`, we also do not try to get its version.
+      - name: Shell versions
+        run: |
+          for shell in sh dash; do
+            for path in $(type -ap "$shell"); do
+              printf "%10s @ %-30q\n" "$shell" "$path"
+            done
+          done
+          for shell in bash fish zsh; do
+            for path in $(type -ap "$shell"); do
+              read -r version < <($path --version)
+              printf "%10s @ %-30q: %s\n" "$shell" "$path" "$version"
+            done
+          done
       # Test in debug mode first.
       - run: cargo test
       # Test in release mode too, to defend against, for example, use of
@@ -29,7 +41,7 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -39,7 +51,7 @@ jobs:
     name: Clippy # i.e. `cargo check` plus extra linting.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
