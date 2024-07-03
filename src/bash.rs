@@ -1,13 +1,16 @@
-use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex, Quotable, Quoter};
+use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
+///
+/// # Compatibility
+///
+/// Quoted/escaped strings produced by [`Bash`] work in both Bash and Z Shell.
 ///
 /// # ⚠️ Warning
 ///
 /// It is _possible_ to encode NUL in a Bash string, but Bash appears to then
-/// truncate the rest of the string after that point, likely because NUL is the
-/// C string terminator. This appears to be a bug in Bash or at least a serious
-/// limitation.
+/// truncate the rest of the string after that point **or** sometimes it filters
+/// the NUL out. It's not yet clear to me when/why each behaviour is chosen.
 ///
 /// If you're quoting UTF-8 content this may not be a problem since there is
 /// only one code point – the null character itself – that will ever produce a
@@ -105,8 +108,7 @@ impl Bash {
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
-                // output. Since we know we're going to use $'...' notation, we
-                // also add 3 bytes.
+                // output. Since we'll generate a $'…' string, add 3 bytes.
                 let size: usize = esc.iter().map(escape_size).sum();
                 let mut sout = Vec::with_capacity(size + 3);
                 escape_chars(esc, &mut sout); // Do the work.
@@ -138,11 +140,12 @@ impl Bash {
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
-                // output. Since we know we're going to use $'...' notation, we
-                // also add 3 bytes.
+                // output. Since we'll generate a $'…' string, add 3 bytes.
                 let size: usize = esc.iter().map(escape_size).sum();
                 sout.reserve(size + 3);
+                let cap = sout.capacity();
                 escape_chars(esc, sout); // Do the work.
+                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
             }
         }
     }
@@ -172,7 +175,6 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
     // Push a Bash-style $'...' quoted string into `sout`.
     sout.extend(b"$'");
-    let mut tmp = b"\\x00".to_owned();
     for mode in esc {
         use Char::*;
         match mode {
@@ -184,20 +186,14 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             CarriageReturn => sout.extend(b"\\r"),
             HorizontalTab => sout.extend(b"\\t"),
             VerticalTab => sout.extend(b"\\v"),
-            Control(ch) => {
-                tmp[2..].copy_from_slice(&u8_to_hex(ch));
-                sout.extend(&tmp)
-            }
+            Control(ch) => sout.extend(&u8_to_hex_escape(ch)),
             Backslash => sout.extend(b"\\\\"),
             SingleQuote => sout.extend(b"\\'"),
             DoubleQuote => sout.extend(b"\""),
             Delete => sout.extend(b"\\x7F"),
             PrintableInert(ch) => sout.push(ch),
             Printable(ch) => sout.push(ch),
-            Extended(ch) => {
-                tmp[2..].copy_from_slice(&u8_to_hex(ch));
-                sout.extend(&tmp)
-            }
+            Extended(ch) => sout.extend(&u8_to_hex_escape(ch)),
         }
     }
     sout.push(b'\'');

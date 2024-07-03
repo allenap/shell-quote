@@ -2,21 +2,19 @@ use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
+/// # Compatibility
+///
+/// Quoted/escaped strings produced by [`Sh`] also work in Bash, Dash, and Z
+/// Shell.
+///
+/// The quoted/escaped strings it produces are different to those coming from
+/// [`Bash`][`crate::Bash`] or its alias [`Zsh`][`crate::Zsh`]. Those strings
+/// won't work in a pure `/bin/sh` shell like Dash, but they are better for
+/// humans to read, to copy and paste. For example, [`Sh`] does not (and cannot)
+/// escape control characters, but characters like `BEL` and `TAB` (and others)
+/// are represented by `\\a` and `\\t` respectively by [`Bash`][`crate::Bash`].
+///
 /// # Notes
-///
-/// The following escapes seem to be "okay":
-///
-/// ```text
-/// \a     alert (bell)
-/// \b     backspace
-/// \f     form feed
-/// \n     new line
-/// \r     carriage return
-/// \t     horizontal tab
-/// \v     vertical tab
-/// \\     backslash
-/// \nnn   the eight-bit character whose value is the octal value nnn
-/// ```
 ///
 /// I wasn't able to find any definitive statement of exactly how Bourne Shell
 /// strings should be quoted, mainly because "Bourne Shell" or `/bin/sh` can
@@ -30,19 +28,50 @@ use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 /// > `/private/var/select/sh` does not exist or does not point to a valid
 /// > shell, `sh` will use one of the supported shells.
 ///
-/// ⚠️ In practice, however, bytes between 0x80 and 0xff inclusive **cannot** be
-/// escaped with `\nnn` notation. The shell simply ignores these escapes and
-/// treats `\nnn` as a literal string of 4 characters. Hence, in this module,
-/// these bytes are reproduced as-is within the quoted string output, with no
-/// special escaping.
+/// However, [dash](https://en.wikipedia.org/wiki/Almquist_shell#dash) appears
+/// to be the de facto `/bin/sh` these days, having been formally adopted in
+/// Ubuntu and Debian, and also available as `/bin/dash` on macOS.
 ///
-/// The code in this module sticks to escape sequences that I consider
-/// "standard" by a heuristic known only to me. It operates byte by byte, making
-/// no special allowances for multi-byte character sets. In other words, it's up
-/// to the caller to figure out encoding for non-ASCII characters. A significant
-/// use case for this code is to quote filenames into scripts, and on *nix
-/// variants I understand that filenames are essentially arrays of bytes, even
-/// if the OS adds some normalisation and case-insensitivity on top.
+/// From dash(1):
+///
+/// > ## Quoting
+/// >
+/// >   Quoting is used to remove the special meaning of certain characters or
+/// >   words to the shell, such as operators, whitespace, or keywords.  There
+/// >   are three types of quoting: matched single quotes, matched double
+/// >   quotes, and backslash.
+/// >
+/// > ## Backslash
+/// >
+/// >   A backslash preserves the literal meaning of the following character,
+/// >   with the exception of ⟨newline⟩.  A backslash preceding a ⟨newline⟩ is
+/// >   treated as a line continuation.
+/// >
+/// > ## Single Quotes
+/// >
+/// >   Enclosing characters in single quotes preserves the literal meaning of
+/// >   all the characters (except single quotes, making it impossible to put
+/// >   single-quotes in a single-quoted string).
+/// >
+/// > ## Double Quotes
+/// >
+/// >   Enclosing characters within double quotes preserves the literal meaning
+/// >   of all characters except dollarsign ($), backquote (`), and backslash
+/// >   (\).  The backslash inside double quotes is historically weird, and
+/// >   serves to quote only the following characters:
+/// >
+/// >   ```text
+/// >   $ ` " \ <newline>.
+/// >   ```
+/// >
+/// >   Otherwise it remains literal.
+///
+/// The code in this module operates byte by byte, making no special allowances
+/// for multi-byte character sets. In other words, it's up to the caller to
+/// figure out encoding for non-ASCII characters. A significant use case for
+/// this code is to quote filenames into scripts, and on *nix variants I
+/// understand that filenames are essentially arrays of bytes, even if the OS
+/// adds some normalisation and case-insensitivity on top.
 ///
 /// If you have some expertise in this area I would love to hear from you.
 ///
@@ -66,7 +95,7 @@ impl Sh {
     ///
     /// This will return one of the following:
     /// - The string as-is, if no quoting is necessary.
-    /// - A quoted string containing ANSI-C-like escapes, like `'foo\nbar'`.
+    /// - A string containing single-quoted sections, like `foo' bar'`.
     ///
     /// See [`quote_into`](#method.quote_into) for a variant that extends an
     /// existing `Vec` instead of allocating a new one.
@@ -76,21 +105,32 @@ impl Sh {
     /// ```
     /// # use shell_quote::{Sh, Quoter};
     /// assert_eq!(Sh::quote("foobar"), b"foobar");
-    /// assert_eq!(Sh::quote("foo bar"), b"'foo bar'");
+    /// assert_eq!(Sh::quote("foo bar"), b"foo' bar'");
     /// ```
     ///
     pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
-        if let Some(esc) = escape_prepare(sin.bytes) {
-            // This may be a pointless optimisation, but calculate the memory
-            // needed to avoid reallocations as we construct the output. Since
-            // we know we're going to use single quotes, we also add 2 bytes.
-            let size: usize = esc.iter().map(escape_size).sum();
-            let mut sout = Vec::with_capacity(size + 2);
-            escape_chars(esc, &mut sout); // Do the work.
-            sout
-        } else {
-            sin.bytes.into()
+        match escape_prepare(sin.bytes) {
+            Prepared::Empty => vec![b'\'', b'\''],
+            Prepared::Inert => sin.bytes.into(),
+            Prepared::Escape(esc) => {
+                // This may be a pointless optimisation, but calculate the
+                // memory needed to avoid reallocations as we construct the
+                // output. Since we'll generate a '…' string, add 2 bytes. Each
+                // single quote can consume an extra 1 to 3 bytes, so we assume
+                // the worse.
+                let quotes: usize = esc
+                    .iter()
+                    .filter(|char| **char == Char::SingleQuote)
+                    .count();
+
+                let size: usize = esc.len() + 2 + (quotes * 3);
+                let mut sout = Vec::with_capacity(size);
+                let cap = sout.capacity();
+                escape_chars(esc, &mut sout); // Do the work.
+                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                sout
+            }
         }
     }
 
@@ -106,84 +146,91 @@ impl Sh {
     /// Sh::quote_into("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
     /// Sh::quote_into("foo bar", &mut buf);
-    /// assert_eq!(buf, b"foobar 'foo bar'");
+    /// assert_eq!(buf, b"foobar foo' bar'");
     /// ```
     ///
     pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         let sin: Quotable<'a> = s.into();
-        if let Some(esc) = escape_prepare(sin.bytes) {
-            // This may be a pointless optimisation, but calculate the memory
-            // needed to avoid reallocations as we construct the output. Since
-            // we know we're going to use single quotes, we also add 2 bytes.
-            let size: usize = esc.iter().map(escape_size).sum();
-            sout.reserve(size + 2);
-            escape_chars(esc, sout); // Do the work.
-        } else {
-            sout.extend(sin.bytes);
+        match escape_prepare(sin.bytes) {
+            Prepared::Empty => sout.extend(b"''"),
+            Prepared::Inert => sout.extend(sin.bytes),
+            Prepared::Escape(esc) => {
+                // This may be a pointless optimisation, but calculate the
+                // memory needed to avoid reallocations as we construct the
+                // output. Since we'll generate a '…' string, add 2 bytes. Each
+                // single quote can consume an extra 1 to 3 bytes, so we assume
+                // the worse.
+                let quotes: usize = esc
+                    .iter()
+                    .filter(|char| **char == Char::SingleQuote)
+                    .count();
+
+                let size: usize = esc.len() + 2 + (quotes * 3);
+                sout.reserve(size);
+                let cap = sout.capacity();
+                escape_chars(esc, sout); // Do the work.
+                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+            }
         }
     }
 }
 
 // ----------------------------------------------------------------------------
 
-fn escape_prepare(sin: &[u8]) -> Option<Vec<Char>> {
+enum Prepared {
+    Empty,
+    Inert,
+    Escape(Vec<Char>),
+}
+
+fn escape_prepare(sin: &[u8]) -> Prepared {
     let esc: Vec<_> = sin.iter().map(Char::from).collect();
     // An optimisation: if the string is not empty and contains only "safe"
     // characters we can avoid further work.
     if esc.is_empty() {
-        Some(esc)
+        Prepared::Empty
     } else if esc.iter().all(Char::is_inert) {
-        None
+        Prepared::Inert
     } else {
-        Some(esc)
+        Prepared::Escape(esc)
     }
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    // Push a Bourne-style '...' escaped string into `sout`.
-    sout.extend(b"'");
+    let mut inside_quotes_now = false;
     for mode in esc {
         use Char::*;
         match mode {
-            Bell => sout.extend(b"\\a"),
-            Backspace => sout.extend(b"\\b"),
-            Escape => sout.extend(b"\\033"),
-            FormFeed => sout.extend(b"\\f"),
-            NewLine => sout.extend(b"\\n"),
-            CarriageReturn => sout.extend(b"\\r"),
-            HorizontalTab => sout.extend(b"\\t"),
-            VerticalTab => sout.extend(b"\\v"),
-            Control(ch) => sout.extend(format!("\\{:03o}", ch).bytes()),
-            Backslash => sout.extend(b"\\\\"),
-            SingleQuote => sout.extend(b"\\047"),
-            DoubleQuote => sout.extend(b"\""),
-            Delete => sout.push(0x7F),
             PrintableInert(ch) => sout.push(ch),
-            Printable(ch) => sout.push(ch),
-            Extended(ch) => sout.push(ch),
+            Control(ch) | Printable(ch) | Extended(ch) => {
+                if inside_quotes_now {
+                    sout.push(ch);
+                } else {
+                    sout.push(b'\'');
+                    inside_quotes_now = true;
+                    sout.push(ch);
+                }
+            }
+            SingleQuote => {
+                if inside_quotes_now {
+                    sout.extend(b"'\\'");
+                    inside_quotes_now = false;
+                } else {
+                    sout.extend(b"\\'");
+                }
+            }
+            ch => {
+                if inside_quotes_now {
+                    sout.push(ch.code());
+                } else {
+                    sout.push(b'\'');
+                    inside_quotes_now = true;
+                    sout.push(ch.code());
+                }
+            }
         }
     }
-    sout.push(b'\'');
-}
-
-fn escape_size(char: &Char) -> usize {
-    use Char::*;
-    match char {
-        Bell => 2,
-        Backspace => 2,
-        Escape => 4,
-        FormFeed => 2,
-        NewLine => 2,
-        CarriageReturn => 2,
-        HorizontalTab => 2,
-        VerticalTab => 2,
-        Control(_) => 4,
-        Backslash => 2,
-        SingleQuote => 4,
-        DoubleQuote => 1,
-        Delete => 4,
-        PrintableInert(_) => 1,
-        Printable(_) => 1,
-        Extended(_) => 4,
+    if inside_quotes_now {
+        sout.push(b'\'');
     }
 }

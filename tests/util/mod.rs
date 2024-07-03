@@ -1,3 +1,13 @@
+use std::{
+    ffi::OsStr,
+    io,
+    path::Path,
+    process::{Command, Output},
+};
+
+/// Return all the paths to binaries on `PATH` with `name`.
+///
+/// If none are found, return only `name`, bare.
 pub(crate) fn find_bins<P: AsRef<std::path::Path>>(name: P) -> Vec<std::path::PathBuf> {
     let name = name.as_ref();
     match std::env::var_os("PATH") {
@@ -14,4 +24,8 @@ pub(crate) fn find_bins<P: AsRef<std::path::Path>>(name: P) -> Vec<std::path::Pa
             vec![name.into()]
         }
     }
+}
+
+pub(crate) fn invoke_shell(bin: &Path, script: &OsStr) -> io::Result<Output> {
+    Command::new(bin).arg("-c").arg(script).output()
 }

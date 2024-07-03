@@ -13,6 +13,14 @@ pub use bash::Bash;
 pub use fish::Fish;
 pub use sh::Sh;
 
+/// Dash accepts the same quoted/escaped strings as `/bin/sh` – indeed, on many
+/// systems, `dash` _is_ `/bin/sh` – hence this is an alias for [`Sh`].
+pub type Dash = Sh;
+
+/// Zsh accepts the same quoted/escaped strings as Bash, hence this is an alias
+/// for [`Bash`].
+pub type Zsh = Bash;
+
 /// Extension trait for pushing shell quoted byte slices, e.g. `&[u8]`, [`&str`]
 /// – anything that's [`Quotable`] – into byte container types like [`Vec<u8>`],
 /// [`String`], [`OsString`] on Unix, and [`bstr::BString`] if it's enabled
@@ -132,9 +140,10 @@ pub trait Quoter: quoter::QuoterSealed {}
 
 /// A string of bytes that can be quoted/escaped.
 ///
-/// This is used by many methods in this crate as a generic `Into<Quotable>`
-/// constraint. Why not accept [`AsRef<[u8]>`] instead? The ergonomics of that
-/// approach were not so good. For example, quoting [`OsString`]/[`OsStr`] and
+/// This is used by many methods in this crate as a generic
+/// [`Into<Quotable>`][`Into`] constraint. Why not accept
+/// [`AsRef<[u8]>`][`AsRef`] instead? The ergonomics of that approach were not
+/// so good. For example, quoting [`OsString`]/[`OsStr`] and
 /// [`PathBuf`]/[`Path`] didn't work in a natural way.
 pub struct Quotable<'a> {
     pub(crate) bytes: &'a [u8],

@@ -1,9 +1,11 @@
 {
     "cSpell.language": "en,en-GB",
     "cSpell.words": [
+        "backquote",
         "bindir",
         "bstr",
         "Clippy",
+        "dollarsign",
         "dtolnay",
         "execing",
         "metacharacters",
