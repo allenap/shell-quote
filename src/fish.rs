@@ -1,4 +1,6 @@
-use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
+use crate::{
+    ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape_uppercase_x, Quotable, Quoter,
+};
 
 /// Quote byte strings for use with fish.
 ///
@@ -147,14 +149,14 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
             CarriageReturn => push_literal(Outside, b"\\r"),
             HorizontalTab => push_literal(Outside, b"\\t"),
             VerticalTab => push_literal(Outside, b"\\v"),
-            Control(ch) => push_literal(Outside, &u8_to_hex_escape(ch)),
+            Control(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
             Backslash => push_literal(Whatever, b"\\\\"),
             SingleQuote => push_literal(Whatever, b"\\'"),
             DoubleQuote => push_literal(Inside, b"\""),
-            Delete => push_literal(Outside, b"\\x7F"),
+            Delete => push_literal(Outside, b"\\X7F"),
             PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
             Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
-            Extended(ch) => push_literal(Outside, &u8_to_hex_escape(ch)),
+            Extended(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
         }
     }
     if inside_quotes_now {

@@ -48,19 +48,19 @@ mod fish_impl {
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(Fish::quote("\x00"), b"\\x00");
+        assert_eq!(Fish::quote("\x00"), b"\\X00");
         assert_eq!(Fish::quote("\x07"), b"\\a");
-        assert_eq!(Fish::quote("\x00"), b"\\x00");
-        assert_eq!(Fish::quote("\x06"), b"\\x06");
-        assert_eq!(Fish::quote("\x7F"), b"\\x7F");
+        assert_eq!(Fish::quote("\x00"), b"\\X00");
+        assert_eq!(Fish::quote("\x06"), b"\\X06");
+        assert_eq!(Fish::quote("\x7F"), b"\\X7F");
     }
 
     #[test]
     fn test_multiple_parts() {
-        assert_eq!(Fish::quote("\x00AABB"), b"\\x00AABB");
-        assert_eq!(Fish::quote("\x07A\x06B\x07"), b"\\aA\\x06B\\a");
-        assert_eq!(Fish::quote("AAA\x7F"), b"AAA\\x7F");
-        assert_eq!(Fish::quote("\x06\x06"), b"\\x06\\x06");
+        assert_eq!(Fish::quote("\x00AA12"), b"\\X00AA12");
+        assert_eq!(Fish::quote("\x07A\x06B\x07"), b"\\aA\\X06B\\a");
+        assert_eq!(Fish::quote("AAA\x7F"), b"AAA\\X7F");
+        assert_eq!(Fish::quote("\x06\x06"), b"\\X06\\X06");
     }
 
     #[test]
