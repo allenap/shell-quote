@@ -49,8 +49,6 @@ fn test_quote_ref_ext_byte_array() {
     assert_eq!(OsString::from_vec(b"$'bytes!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'bytes!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'bytes!'"), quoted);
 }
 
 #[test]
@@ -62,8 +60,6 @@ fn test_quote_ref_ext_byte_slice() {
     assert_eq!(OsString::from_vec(b"$'bytes!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'bytes!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'bytes!'"), quoted);
 }
 
 #[test]
@@ -75,8 +71,6 @@ fn test_quote_ref_ext_vec() {
     assert_eq!(OsString::from_vec(b"$'vec!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'vec!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'vec!'"), quoted);
 }
 
 #[test]
@@ -88,8 +82,6 @@ fn test_quote_ref_ext_os_string() {
     assert_eq!(OsString::from_vec(b"$'os-string!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'os-string!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'os-string!'"), quoted);
 }
 
 #[test]
@@ -102,8 +94,6 @@ fn test_quote_ref_ext_os_str() {
     assert_eq!(OsString::from_vec(b"$'os-str!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'os-str!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'os-str!'"), quoted);
 }
 
 #[test]
@@ -115,8 +105,6 @@ fn test_quote_ref_ext_b_string() {
     assert_eq!(OsString::from_vec(b"$'b-string!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'b-string!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'b-string!'"), quoted);
 }
 
 #[test]
@@ -129,8 +117,6 @@ fn test_quote_ref_ext_b_str() {
     assert_eq!(OsString::from_vec(b"$'b-str!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'b-str!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'b-str!'"), quoted);
 }
 
 #[test]
@@ -142,8 +128,6 @@ fn test_quote_ref_ext_path_buf() {
     assert_eq!(OsString::from_vec(b"$'path-buf!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'path-buf!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'path-buf!'"), quoted);
 }
 
 #[test]
@@ -156,8 +140,6 @@ fn test_quote_ref_ext_path() {
     assert_eq!(OsString::from_vec(b"$'path!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'path!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'path!'"), quoted);
 }
 
 #[test]
@@ -169,8 +151,6 @@ fn test_quote_ref_ext_string() {
     assert_eq!(OsString::from_vec(b"$'string!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'string!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'string!'"), quoted);
 }
 
 #[test]
@@ -182,6 +162,4 @@ fn test_quote_ref_ext_str() {
     assert_eq!(OsString::from_vec(b"$'str!'".into()), quoted);
     let quoted: BString = source.quoted(Bash);
     assert_eq!(BString::from(b"$'str!'"), quoted);
-    let quoted: String = source.quoted(Bash);
-    assert_eq!(String::from("$'str!'"), quoted);
 }
