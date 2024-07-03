@@ -1,3 +1,5 @@
+#![cfg(feature = "fish")]
+
 use crate::{
     ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape_uppercase_x, Quotable, Quoter,
 };

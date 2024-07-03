@@ -1,3 +1,5 @@
+#![cfg(feature = "sh")]
+
 use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
