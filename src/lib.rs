@@ -126,6 +126,140 @@ pub(crate) mod quoter {
 pub trait Quoter: quoter::QuoterSealed {}
 
 // ----------------------------------------------------------------------------
+// -- New traits --------------------------------------------------------------
+// ----------------------------------------------------------------------------
+
+/// REPLACES [`quoter::QuoterSealed::quote_into`].
+pub trait QuoteInto<OUT: ?Sized> {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OUT);
+}
+
+impl QuoteInto<Vec<u8>> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into(s, out);
+    }
+}
+
+impl QuoteInto<String> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+        Self::quote_into(s, unsafe { out.as_mut_vec() })
+    }
+}
+
+#[cfg(unix)]
+impl QuoteInto<OsString> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote(s);
+        let s = OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote(s);
+        out.extend(s);
+    }
+}
+
+impl QuoteInto<Vec<u8>> for Fish {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into(s, out);
+    }
+}
+
+impl QuoteInto<String> for Fish {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+        Self::quote_into(s, unsafe { out.as_mut_vec() })
+    }
+}
+
+#[cfg(unix)]
+impl QuoteInto<OsString> for Fish {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote(s);
+        let s = OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Fish {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote(s);
+        out.extend(s);
+    }
+}
+
+impl QuoteInto<Vec<u8>> for Sh {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into(s, out);
+    }
+}
+
+#[cfg(unix)]
+impl QuoteInto<OsString> for Sh {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote(s);
+        let s = OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Sh {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote(s);
+        out.extend(s);
+    }
+}
+
+/// REPLACES [`quoter::QuoterSealed::quote`].
+pub trait Quote<OUT: Default>: QuoteInto<OUT> {
+    fn x_quote<'q, S: ?Sized + Into<Quotable<'q>>>(s: S) -> OUT {
+        let mut out = OUT::default();
+        Self::x_quote_into(s, &mut out);
+        out
+    }
+}
+
+/// Blanket impl for anything that already has a [`QuoteInto`] impl.
+impl<T: QuoteInto<OUT>, OUT: Default> Quote<OUT> for T {}
+
+fn _foo1() {
+    let mut a: OsString = Bash::x_quote(b"123");
+    Bash::x_quote_into("foo", &mut a);
+}
+
+pub trait QuotePush {
+    fn x_push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
+    where
+        Q: QuoteInto<Self>,
+        S: ?Sized + Into<Quotable<'q>>;
+}
+
+impl<T: ?Sized> QuotePush for T {
+    fn x_push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
+    where
+        Q: QuoteInto<Self>,
+        S: ?Sized + Into<Quotable<'q>>,
+    {
+        Q::x_quote_into(s, self);
+    }
+}
+
+fn _foo2() {
+    let mut string: String = Bash::x_quote(b"123");
+    string.x_push_quoted(Bash, "bar");
+    let mut os_string: OsString = Fish::x_quote("xyz");
+    os_string.x_push_quoted(Fish, "wobble");
+}
+
+// ----------------------------------------------------------------------------
 
 /// A string of bytes that can be quoted/escaped.
 ///
