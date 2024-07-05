@@ -38,28 +38,19 @@ pub type Zsh = bash::Bash;
 /// – anything that's [`Quotable`] – into byte container types like [`Vec<u8>`],
 /// [`String`], [`OsString`] on Unix, and [`bstr::BString`] if it's enabled.
 pub trait QuoteExt {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, q: Q, s: S);
+    fn push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
+    where
+        Q: QuoteInto<Self>,
+        S: ?Sized + Into<Quotable<'q>>;
 }
 
-impl QuoteExt for Vec<u8> {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, _q: Q, s: S) {
-        Q::quote_into(s, self);
-    }
-}
-
-#[cfg(unix)]
-impl QuoteExt for OsString {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, _q: Q, s: S) {
-        use std::os::unix::ffi::OsStrExt;
-        let quoted = Q::quote(s);
-        self.push(OsStr::from_bytes(&quoted))
-    }
-}
-
-#[cfg(feature = "bstr")]
-impl QuoteExt for bstr::BString {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, _q: Q, s: S) {
-        Q::quote_into(s, self)
+impl<T: ?Sized> QuoteExt for T {
+    fn push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
+    where
+        Q: QuoteInto<Self>,
+        S: ?Sized + Into<Quotable<'q>>,
+    {
+        Q::x_quote_into(s, self);
     }
 }
 
@@ -235,28 +226,11 @@ fn _foo1() {
     Bash::x_quote_into("foo", &mut a);
 }
 
-pub trait QuotePush {
-    fn x_push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
-    where
-        Q: QuoteInto<Self>,
-        S: ?Sized + Into<Quotable<'q>>;
-}
-
-impl<T: ?Sized> QuotePush for T {
-    fn x_push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
-    where
-        Q: QuoteInto<Self>,
-        S: ?Sized + Into<Quotable<'q>>,
-    {
-        Q::x_quote_into(s, self);
-    }
-}
-
 fn _foo2() {
     let mut string: String = Bash::x_quote(b"123");
-    string.x_push_quoted(Bash, "bar");
+    string.push_quoted(Bash, "bar");
     let mut os_string: OsString = Fish::x_quote("xyz");
-    os_string.x_push_quoted(Fish, "wobble");
+    os_string.push_quoted(Fish, "wobble");
 }
 
 // ----------------------------------------------------------------------------
