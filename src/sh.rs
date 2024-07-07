@@ -4,6 +4,21 @@ use crate::{ascii::Char, Quotable, QuoteInto};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
+/// # ⚠️ Warning
+///
+/// There is no escape sequence for bytes between 0x80 and 0xFF – these must be
+/// reproduced exactly in the quoted output – hence **it is not possible to
+/// safely create or quote into an existing [`String`]** with [`Sh`] because
+/// these bytes would be misinterpreted as a second or subsequent byte of a
+/// [multi-byte UTF-8 code point representation][utf-8-encoding].
+///
+/// [utf-8-encoding]: https://en.wikipedia.org/wiki/UTF-8#Encoding
+///
+/// If you're not using bytes between 0x80 and 0xFF, a workaround is to instead
+/// quote into a [`Vec<u8>`] and convert that into a string using
+/// [`String::from_utf8`]. The key difference is that `from_utf8` returns a
+/// [`Result`] which the caller must deal with.
+///
 /// # Compatibility
 ///
 /// Quoted/escaped strings produced by [`Sh`] also work in Bash, Dash, and Z
@@ -74,8 +89,6 @@ use crate::{ascii::Char, Quotable, QuoteInto};
 /// this code is to quote filenames into scripts, and on *nix variants I
 /// understand that filenames are essentially arrays of bytes, even if the OS
 /// adds some normalisation and case-insensitivity on top.
-///
-/// If you have some expertise in this area I would love to hear from you.
 ///
 #[derive(Debug, Clone, Copy)]
 pub struct Sh;

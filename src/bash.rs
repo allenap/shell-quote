@@ -61,8 +61,6 @@ use crate::{ascii::Char, util::u8_to_hex_escape, Quotable, QuoteInto};
 /// understand that filenames are essentially arrays of bytes, even if the OS
 /// adds some normalisation and case-insensitivity on top.
 ///
-/// If you have some expertise in this area I would love to hear from you.
-///
 /// [ansi-c-quoting]:
 ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
 ///

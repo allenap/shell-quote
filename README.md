@@ -14,32 +14,24 @@ This package implements escaping for [GNU Bash][gnu-bash], [Z Shell][z-shell],
 [z-shell]: https://zsh.sourceforge.io/
 [fish]: https://fishshell.com/
 
+It can take as input many different string and byte string types:
+
+- [`&str`] and [`String`]
+- [`&bstr::BStr`][`bstr::BStr`] and [`bstr::BString`]
+- [`&[u8]`][`slice`] and [`Vec<u8>`]
+- [`&OsStr`][`OsStr`] and [`OsString`] (on UNIX)
+- [`&Path`][`Path`] and [`PathBuf`]
+
+and produce output as (or push into) the following types:
+
+- [`String`] (for shells that support it, i.e. not [`Sh`]/[`Dash`])
+- [`bstr::BString`]
+- [`Vec<u8>`]
+- [`OsString`] (on UNIX)
+
 Inspired by the Haskell [shell-escape][] package.
 
 [shell-escape]: https://github.com/solidsnack/shell-escape
-
-## Compatibility
-
-[`Sh`] can serve as a lowest common denominator for Bash, Z Shell, and
-`/bin/sh`-like shells like Dash. However, fish's quoting rules are different
-enough that you must use [`Fish`] for fish scripts.
-
-## Feature flags
-
-The following are all enabled by default:
-
-- `bstr`: Support [`bstr::BStr`] and [`bstr::BString`].
-- `bash`: Support [Bash][gnu-bash] and [Z Shell][z-shell].
-- `fish`: Support [fish][].
-- `sh`: Support `/bin/sh`-like shells including [Dash][dash].
-
-To limit support to specific shells, you must disable this crate's default
-features in `Cargo.toml` and re-enable those you want. For example:
-
-```toml
-[dependencies]
-shell-quote = { version = "*", default-features = false, features = ["bash"] }
-```
 
 ## Examples
 
@@ -67,12 +59,12 @@ It's also possible to use the extension trait [`QuoteRefExt`] which provides a
 
 ```rust
 use shell_quote::{Bash, Sh, Fish, QuoteRefExt};
-let quoted: Vec<u8> = "foo bar".quoted(Bash);
-assert_eq!(quoted, b"$'foo bar'");
+let quoted: String = "foo bar".quoted(Bash);
+assert_eq!(quoted, "$'foo bar'");
 let quoted: Vec<u8> = "foo bar".quoted(Sh);
 assert_eq!(quoted, b"foo' bar'");
-let quoted: Vec<u8> = "foo bar".quoted(Fish);
-assert_eq!(quoted, b"foo' bar'");
+let quoted: String = "foo bar".quoted(Fish);
+assert_eq!(quoted, "foo' bar'");
 ```
 
 Or the extension trait [`QuoteExt`] for pushing quoted strings into a buffer:
@@ -84,4 +76,30 @@ script.push_quoted(Bash, "foo bar");
 script.extend(b" > ");
 script.push_quoted(Bash, "/path/(to)/[output]");
 assert_eq!(script, "echo $'foo bar' > $'/path/(to)/[output]'");
+```
+
+## Compatibility
+
+[`Sh`] can serve as a lowest common denominator for Bash, Z Shell, and
+`/bin/sh`-like shells like Dash. However, fish's quoting rules are different
+enough that you must use [`Fish`] for fish scripts.
+
+Note that using [`Sh`] as a lowest common denominator brings with it other
+issues; read its documentation carefully to understand the limitations.
+
+## Feature flags
+
+The following are all enabled by default:
+
+- `bstr`: Support [`bstr::BStr`] and [`bstr::BString`].
+- `bash`: Support [Bash][gnu-bash] and [Z Shell][z-shell].
+- `fish`: Support [fish][].
+- `sh`: Support `/bin/sh`-like shells including [Dash][dash].
+
+To limit support to specific shells, you must disable this crate's default
+features in `Cargo.toml` and re-enable those you want. For example:
+
+```toml
+[dependencies]
+shell-quote = { version = "*", default-features = false, features = ["bash"] }
 ```
