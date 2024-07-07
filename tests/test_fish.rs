@@ -14,7 +14,7 @@ mod fish_impl {
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            Fish::quote("abcdefghijklmnopqrstuvwxyz"),
+            Fish::quote_vec("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -22,65 +22,65 @@ mod fish_impl {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            Fish::quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            Fish::quote_vec("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(Fish::quote("0123456789"), b"0123456789");
+        assert_eq!(Fish::quote_vec("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(Fish::quote("-_=/,.+"), b"-_'=/,.+'");
+        assert_eq!(Fish::quote_vec("-_=/,.+"), b"-_'=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(Fish::quote(""), b"''");
+        assert_eq!(Fish::quote_vec(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(Fish::quote(r#"woo"wah""#), br#"woo'"wah"'"#);
-        assert_eq!(Fish::quote(r#"'"#), br#"\'"#);
+        assert_eq!(Fish::quote_vec(r#"woo"wah""#), br#"woo'"wah"'"#);
+        assert_eq!(Fish::quote_vec(r#"'"#), br#"\'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(Fish::quote("\x00"), b"\\X00");
-        assert_eq!(Fish::quote("\x07"), b"\\a");
-        assert_eq!(Fish::quote("\x00"), b"\\X00");
-        assert_eq!(Fish::quote("\x06"), b"\\X06");
-        assert_eq!(Fish::quote("\x7F"), b"\\X7F");
+        assert_eq!(Fish::quote_vec("\x00"), b"\\X00");
+        assert_eq!(Fish::quote_vec("\x07"), b"\\a");
+        assert_eq!(Fish::quote_vec("\x00"), b"\\X00");
+        assert_eq!(Fish::quote_vec("\x06"), b"\\X06");
+        assert_eq!(Fish::quote_vec("\x7F"), b"\\X7F");
     }
 
     #[test]
     fn test_multiple_parts() {
-        assert_eq!(Fish::quote("\x00AA12"), b"\\X00AA12");
-        assert_eq!(Fish::quote("\x07A\x06B\x07"), b"\\aA\\X06B\\a");
-        assert_eq!(Fish::quote("AAA\x7F"), b"AAA\\X7F");
-        assert_eq!(Fish::quote("\x06\x06"), b"\\X06\\X06");
+        assert_eq!(Fish::quote_vec("\x00AA12"), b"\\X00AA12");
+        assert_eq!(Fish::quote_vec("\x07A\x06B\x07"), b"\\aA\\X06B\\a");
+        assert_eq!(Fish::quote_vec("AAA\x7F"), b"AAA\\X7F");
+        assert_eq!(Fish::quote_vec("\x06\x06"), b"\\X06\\X06");
     }
 
     #[test]
     fn test_new_lines() {
-        assert_eq!(Fish::quote("A\nB"), b"A\\nB");
+        assert_eq!(Fish::quote_vec("A\nB"), b"A\\nB");
     }
 
     #[test]
     fn test_escape_into_plain() {
         let mut buffer = Vec::new();
-        Fish::quote_into("hello", &mut buffer);
+        Fish::quote_into_vec("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
     fn test_escape_into_with_escapes() {
         let mut buffer = Vec::new();
-        Fish::quote_into("-_=/,.+", &mut buffer);
+        Fish::quote_into_vec("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
@@ -92,7 +92,7 @@ mod fish_impl {
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
-        Fish::quote_into(string.as_bytes(), &mut script);
+        Fish::quote_into_vec(string.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         // Test with every version of `fish` we find on `PATH`.
         for bin in find_bins("fish") {

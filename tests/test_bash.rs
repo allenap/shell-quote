@@ -14,7 +14,7 @@ mod bash_impl {
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            Bash::quote("abcdefghijklmnopqrstuvwxyz"),
+            Bash::quote_vec("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -22,51 +22,51 @@ mod bash_impl {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            Bash::quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            Bash::quote_vec("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(Bash::quote("0123456789"), b"0123456789");
+        assert_eq!(Bash::quote_vec("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(Bash::quote("-_=/,.+"), b"$'-_=/,.+'");
+        assert_eq!(Bash::quote_vec("-_=/,.+"), b"$'-_=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(Bash::quote(""), b"''");
+        assert_eq!(Bash::quote_vec(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(Bash::quote(r#"woo"wah""#), br#"$'woo"wah"'"#);
+        assert_eq!(Bash::quote_vec(r#"woo"wah""#), br#"$'woo"wah"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(Bash::quote("\x00"), b"$'\\x00'");
-        assert_eq!(Bash::quote("\x07"), b"$'\\a'");
-        assert_eq!(Bash::quote("\x00"), b"$'\\x00'");
-        assert_eq!(Bash::quote("\x06"), b"$'\\x06'");
-        assert_eq!(Bash::quote("\x7F"), b"$'\\x7F'");
+        assert_eq!(Bash::quote_vec("\x00"), b"$'\\x00'");
+        assert_eq!(Bash::quote_vec("\x07"), b"$'\\a'");
+        assert_eq!(Bash::quote_vec("\x00"), b"$'\\x00'");
+        assert_eq!(Bash::quote_vec("\x06"), b"$'\\x06'");
+        assert_eq!(Bash::quote_vec("\x7F"), b"$'\\x7F'");
     }
 
     #[test]
     fn test_escape_into_plain() {
         let mut buffer = Vec::new();
-        Bash::quote_into("hello", &mut buffer);
+        Bash::quote_into_vec("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
     fn test_escape_into_with_escapes() {
         let mut buffer = Vec::new();
-        Bash::quote_into("-_=/,.+", &mut buffer);
+        Bash::quote_into_vec("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
@@ -80,7 +80,7 @@ mod bash_impl {
         // `printf %s` seems to do the right thing in most shells, i.e. it does
         // not interpret the arguments in any way.
         let mut script = b"printf %s ".to_vec();
-        Bash::quote_into(input.as_bytes(), &mut script);
+        Bash::quote_into_vec(input.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         (input, script)
     }

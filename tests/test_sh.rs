@@ -44,7 +44,7 @@ mod sh_impl {
     #[test]
     fn test_lowercase_ascii() {
         assert_eq!(
-            Sh::quote("abcdefghijklmnopqrstuvwxyz"),
+            Sh::quote_vec("abcdefghijklmnopqrstuvwxyz"),
             b"abcdefghijklmnopqrstuvwxyz"
         );
     }
@@ -52,51 +52,51 @@ mod sh_impl {
     #[test]
     fn test_uppercase_ascii() {
         assert_eq!(
-            Sh::quote("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            Sh::quote_vec("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         );
     }
 
     #[test]
     fn test_numbers() {
-        assert_eq!(Sh::quote("0123456789"), b"0123456789");
+        assert_eq!(Sh::quote_vec("0123456789"), b"0123456789");
     }
 
     #[test]
     fn test_punctuation() {
-        assert_eq!(Sh::quote("-_=/,.+"), b"-_'=/,.+'");
+        assert_eq!(Sh::quote_vec("-_=/,.+"), b"-_'=/,.+'");
     }
 
     #[test]
     fn test_empty_string() {
-        assert_eq!(Sh::quote(""), b"''");
+        assert_eq!(Sh::quote_vec(""), b"''");
     }
 
     #[test]
     fn test_basic_escapes() {
-        assert_eq!(Sh::quote(r#"woo'wah""#), br#"woo\'wah'"'"#);
+        assert_eq!(Sh::quote_vec(r#"woo'wah""#), br#"woo\'wah'"'"#);
     }
 
     #[test]
     fn test_control_characters() {
-        assert_eq!(Sh::quote("\x07"), b"'\x07'");
-        assert_eq!(Sh::quote("\x00"), b"'\x00'");
-        assert_eq!(Sh::quote("\x06"), b"'\x06'");
-        assert_eq!(Sh::quote("\x7F"), b"'\x7F'");
-        assert_eq!(Sh::quote("\x1B"), b"'\x1B'");
+        assert_eq!(Sh::quote_vec("\x07"), b"'\x07'");
+        assert_eq!(Sh::quote_vec("\x00"), b"'\x00'");
+        assert_eq!(Sh::quote_vec("\x06"), b"'\x06'");
+        assert_eq!(Sh::quote_vec("\x7F"), b"'\x7F'");
+        assert_eq!(Sh::quote_vec("\x1B"), b"'\x1B'");
     }
 
     #[test]
     fn test_quote_into_plain() {
         let mut buffer = Vec::new();
-        Sh::quote_into("hello", &mut buffer);
+        Sh::quote_into_vec("hello", &mut buffer);
         assert_eq!(buffer, b"hello");
     }
 
     #[test]
     fn test_quote_into_with_escapes() {
         let mut buffer = Vec::new();
-        Sh::quote_into("-_=/,.+", &mut buffer);
+        Sh::quote_into_vec("-_=/,.+", &mut buffer);
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
@@ -110,7 +110,7 @@ mod sh_impl {
         // `printf %s` seems to do the right thing in most shells, i.e. it does
         // not interpret the arguments in any way.
         let mut script = b"printf %s ".to_vec();
-        Sh::quote_into(input.as_bytes(), &mut script);
+        Sh::quote_into_vec(input.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         (input, script)
     }

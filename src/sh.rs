@@ -82,7 +82,7 @@ pub struct Sh;
 
 impl QuoteInto<Vec<u8>> for Sh {
     fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
-        Self::quote_into(s, out);
+        Self::quote_into_vec(s, out);
     }
 }
 
@@ -90,7 +90,7 @@ impl QuoteInto<Vec<u8>> for Sh {
 impl QuoteInto<std::ffi::OsString> for Sh {
     fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
         use std::os::unix::ffi::OsStringExt;
-        let s = Self::quote(s);
+        let s = Self::quote_vec(s);
         let s = std::ffi::OsString::from_vec(s);
         out.push(s);
     }
@@ -99,7 +99,7 @@ impl QuoteInto<std::ffi::OsString> for Sh {
 #[cfg(feature = "bstr")]
 impl QuoteInto<bstr::BString> for Sh {
     fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
-        let s = Self::quote(s);
+        let s = Self::quote_vec(s);
         out.extend(s);
     }
 }
@@ -117,12 +117,12 @@ impl Sh {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Sh, Quote};
-    /// assert_eq!(Sh::quote("foobar"), b"foobar");
-    /// assert_eq!(Sh::quote("foo bar"), b"foo' bar'");
+    /// # use shell_quote::Sh;
+    /// assert_eq!(Sh::quote_vec("foobar"), b"foobar");
+    /// assert_eq!(Sh::quote_vec("foo bar"), b"foo' bar'");
     /// ```
     ///
-    pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+    pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
@@ -155,15 +155,15 @@ impl Sh {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Sh, Quote};
+    /// # use shell_quote::Sh;
     /// let mut buf = Vec::with_capacity(128);
-    /// Sh::quote_into("foobar", &mut buf);
+    /// Sh::quote_into_vec("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
-    /// Sh::quote_into("foo bar", &mut buf);
+    /// Sh::quote_into_vec("foo bar", &mut buf);
     /// assert_eq!(buf, b"foobar foo' bar'");
     /// ```
     ///
-    pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+    pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => sout.extend(b"''"),

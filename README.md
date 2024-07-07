@@ -49,17 +49,17 @@ When quoting using raw bytes it can be convenient to call [`Sh`]'s, [`Dash`]'s,
 ```rust
 use shell_quote::{Bash, Dash, Fish, Sh, Zsh};
 // No quoting is necessary for simple strings.
-assert_eq!(Sh::quote("foobar"), b"foobar");
-assert_eq!(Dash::quote("foobar"), b"foobar");  // `Dash` is an alias for `Sh`
-assert_eq!(Bash::quote("foobar"), b"foobar");
-assert_eq!(Zsh::quote("foobar"), b"foobar");   // `Zsh` is an alias for `Bash`
-assert_eq!(Fish::quote("foobar"), b"foobar");
+assert_eq!(Sh::quote_vec("foobar"), b"foobar");
+assert_eq!(Dash::quote_vec("foobar"), b"foobar");  // `Dash` is an alias for `Sh`
+assert_eq!(Bash::quote_vec("foobar"), b"foobar");
+assert_eq!(Zsh::quote_vec("foobar"), b"foobar");   // `Zsh` is an alias for `Bash`
+assert_eq!(Fish::quote_vec("foobar"), b"foobar");
 // In all shells, quoting is necessary for strings with spaces.
-assert_eq!(Sh::quote("foo bar"), b"foo' bar'");
-assert_eq!(Dash::quote("foo bar"), b"foo' bar'");
-assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
-assert_eq!(Zsh::quote("foo bar"), b"$'foo bar'");
-assert_eq!(Fish::quote("foo bar"), b"foo' bar'");
+assert_eq!(Sh::quote_vec("foo bar"), b"foo' bar'");
+assert_eq!(Dash::quote_vec("foo bar"), b"foo' bar'");
+assert_eq!(Bash::quote_vec("foo bar"), b"$'foo bar'");
+assert_eq!(Zsh::quote_vec("foo bar"), b"$'foo bar'");
+assert_eq!(Fish::quote_vec("foo bar"), b"foo' bar'");
 ```
 
 It's also possible to use the extension trait [`QuoteRefExt`] which provides a
