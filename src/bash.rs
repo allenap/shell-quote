@@ -1,6 +1,6 @@
 #![cfg(feature = "bash")]
 
-use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
+use crate::{ascii::Char, quoter, util::u8_to_hex_escape, Quotable, Quoter};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -71,11 +71,13 @@ pub struct Bash;
 
 impl Quoter for Bash {}
 
-/// Expose [`Quoter`] implementation as default impl too, for convenience.
-impl QuoterSealed for Bash {
+impl quoter::Quote for Bash {
     fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         Self::quote(s)
     }
+}
+
+impl quoter::QuoteInto for Bash {
     fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         Self::quote_into(s, sout)
     }
