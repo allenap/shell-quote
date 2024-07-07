@@ -1,6 +1,6 @@
 #![cfg(feature = "sh")]
 
-use crate::{ascii::Char, sealed, Quotable, Quoter};
+use crate::{ascii::Char, Quotable, QuoteInto};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
@@ -80,17 +80,27 @@ use crate::{ascii::Char, sealed, Quotable, Quoter};
 #[derive(Debug, Clone, Copy)]
 pub struct Sh;
 
-impl Quoter for Sh {}
-
-impl sealed::Quote for Sh {
-    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        Self::quote(s)
+impl QuoteInto<Vec<u8>> for Sh {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into(s, out);
     }
 }
 
-impl sealed::QuoteInto for Sh {
-    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        Self::quote_into(s, sout)
+#[cfg(unix)]
+impl QuoteInto<std::ffi::OsString> for Sh {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote(s);
+        let s = std::ffi::OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Sh {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote(s);
+        out.extend(s);
     }
 }
 
@@ -107,7 +117,7 @@ impl Sh {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Sh, Quoter};
+    /// # use shell_quote::{Sh, Quote};
     /// assert_eq!(Sh::quote("foobar"), b"foobar");
     /// assert_eq!(Sh::quote("foo bar"), b"foo' bar'");
     /// ```
@@ -145,7 +155,7 @@ impl Sh {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Sh, Quoter};
+    /// # use shell_quote::{Sh, Quote};
     /// let mut buf = Vec::with_capacity(128);
     /// Sh::quote_into("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.

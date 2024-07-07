@@ -1,6 +1,6 @@
 #![cfg(feature = "bash")]
 
-use crate::{ascii::Char, sealed, util::u8_to_hex_escape, Quotable, Quoter};
+use crate::{ascii::Char, util::u8_to_hex_escape, Quotable, QuoteInto};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -69,19 +69,39 @@ use crate::{ascii::Char, sealed, util::u8_to_hex_escape, Quotable, Quoter};
 #[derive(Debug, Clone, Copy)]
 pub struct Bash;
 
-impl Quoter for Bash {}
+// ----------------------------------------------------------------------------
 
-impl sealed::Quote for Bash {
-    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        Self::quote(s)
+impl QuoteInto<Vec<u8>> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into(s, out);
     }
 }
 
-impl sealed::QuoteInto for Bash {
-    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        Self::quote_into(s, sout)
+impl QuoteInto<String> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+        Self::quote_into(s, unsafe { out.as_mut_vec() })
     }
 }
+
+#[cfg(unix)]
+impl QuoteInto<std::ffi::OsString> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote(s);
+        let s = std::ffi::OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Bash {
+    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote(s);
+        out.extend(s);
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 impl Bash {
     /// Quote a string of bytes into a new `Vec<u8>`.
@@ -96,7 +116,7 @@ impl Bash {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Bash, Quoter};
+    /// # use shell_quote::{Bash, Quote};
     /// assert_eq!(Bash::quote("foobar"), b"foobar");
     /// assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
     /// ```
@@ -128,7 +148,7 @@ impl Bash {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Bash, Quoter};
+    /// # use shell_quote::{Bash, Quote};
     /// let mut buf = Vec::with_capacity(128);
     /// Bash::quote_into("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
