@@ -1,6 +1,6 @@
 #![cfg(feature = "sh")]
 
-use crate::{ascii::Char, quoter, Quotable, Quoter};
+use crate::{ascii::Char, sealed, Quotable, Quoter};
 
 /// Quote byte strings for use with `/bin/sh`.
 ///
@@ -82,13 +82,13 @@ pub struct Sh;
 
 impl Quoter for Sh {}
 
-impl quoter::Quote for Sh {
+impl sealed::Quote for Sh {
     fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         Self::quote(s)
     }
 }
 
-impl quoter::QuoteInto for Sh {
+impl sealed::QuoteInto for Sh {
     fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         Self::quote_into(s, sout)
     }

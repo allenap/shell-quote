@@ -1,6 +1,6 @@
 #![cfg(feature = "fish")]
 
-use crate::{ascii::Char, quoter, util::u8_to_hex_escape_uppercase_x, Quotable, Quoter};
+use crate::{ascii::Char, sealed, util::u8_to_hex_escape_uppercase_x, Quotable, Quoter};
 
 /// Quote byte strings for use with fish.
 ///
@@ -25,13 +25,13 @@ pub struct Fish;
 
 impl Quoter for Fish {}
 
-impl quoter::Quote for Fish {
+impl sealed::Quote for Fish {
     fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         Self::quote(s)
     }
 }
 
-impl quoter::QuoteInto for Fish {
+impl sealed::QuoteInto for Fish {
     fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         Self::quote_into(s, sout)
     }

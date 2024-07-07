@@ -98,7 +98,7 @@ where
 
 // ----------------------------------------------------------------------------
 
-pub(crate) mod quoter {
+pub(crate) mod sealed {
     pub trait Quote {
         /// Quote/escape a string of bytes into a new [`Vec<u8>`].
         fn quote<'a, S: ?Sized + Into<super::Quotable<'a>>>(s: S) -> Vec<u8>;
@@ -116,7 +116,7 @@ pub(crate) mod quoter {
 /// This is because the [`QuoteExt`] implementation for [`String`] must be sure
 /// that quoted bytes are valid UTF-8, and that is only possible if the
 /// implementation is known and tested in advance.
-pub trait Quoter: quoter::Quote + quoter::QuoteInto {}
+pub trait Quoter: sealed::Quote + sealed::QuoteInto {}
 
 // ----------------------------------------------------------------------------
 // -- New traits --------------------------------------------------------------
