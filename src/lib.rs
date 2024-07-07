@@ -39,15 +39,15 @@ pub type Zsh = bash::Bash;
 /// Quoting/escaping a string of bytes into a shell-safe form.
 pub trait QuoteInto<OUT: ?Sized> {
     /// Quote/escape a string of bytes into an existing container.
-    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OUT);
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OUT);
 }
 
 /// Quoting/escaping a string of bytes into a shell-safe form.
 pub trait Quote<OUT: Default>: QuoteInto<OUT> {
     /// Quote/escape a string of bytes into a new container.
-    fn x_quote<'q, S: ?Sized + Into<Quotable<'q>>>(s: S) -> OUT {
+    fn quote<'q, S: ?Sized + Into<Quotable<'q>>>(s: S) -> OUT {
         let mut out = OUT::default();
-        Self::x_quote_into(s, &mut out);
+        Self::quote_into(s, &mut out);
         out
     }
 }
@@ -73,7 +73,7 @@ impl<T: ?Sized> QuoteExt for T {
         Q: QuoteInto<Self>,
         S: ?Sized + Into<Quotable<'q>>,
     {
-        Q::x_quote_into(s, self);
+        Q::quote_into(s, self);
     }
 }
 
@@ -92,7 +92,7 @@ where
     S: ?Sized + Into<Quotable<'a>>,
 {
     fn quoted<Q: Quote<OUT>>(self, _q: Q) -> OUT {
-        Q::x_quote(self)
+        Q::quote(self)
     }
 }
 

@@ -72,20 +72,20 @@ pub struct Bash;
 // ----------------------------------------------------------------------------
 
 impl QuoteInto<Vec<u8>> for Bash {
-    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
         Self::quote_into_vec(s, out);
     }
 }
 
 impl QuoteInto<String> for Bash {
-    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
         Self::quote_into_vec(s, unsafe { out.as_mut_vec() })
     }
 }
 
 #[cfg(unix)]
 impl QuoteInto<std::ffi::OsString> for Bash {
-    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
         use std::os::unix::ffi::OsStringExt;
         let s = Self::quote_vec(s);
         let s = std::ffi::OsString::from_vec(s);
@@ -95,7 +95,7 @@ impl QuoteInto<std::ffi::OsString> for Bash {
 
 #[cfg(feature = "bstr")]
 impl QuoteInto<bstr::BString> for Bash {
-    fn x_quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
         let s = Self::quote_vec(s);
         out.extend(s);
     }
