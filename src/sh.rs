@@ -1,8 +1,23 @@
 #![cfg(feature = "sh")]
 
-use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
+use crate::{ascii::Char, Quotable, QuoteInto};
 
 /// Quote byte strings for use with `/bin/sh`.
+///
+/// # ⚠️ Warning
+///
+/// There is no escape sequence for bytes between 0x80 and 0xFF – these must be
+/// reproduced exactly in the quoted output – hence **it is not possible to
+/// safely create or quote into an existing [`String`]** with [`Sh`] because
+/// these bytes would be misinterpreted as a second or subsequent byte of a
+/// [multi-byte UTF-8 code point representation][utf-8-encoding].
+///
+/// [utf-8-encoding]: https://en.wikipedia.org/wiki/UTF-8#Encoding
+///
+/// If you're not using bytes between 0x80 and 0xFF, a workaround is to instead
+/// quote into a [`Vec<u8>`] and convert that into a string using
+/// [`String::from_utf8`]. The key difference is that `from_utf8` returns a
+/// [`Result`] which the caller must deal with.
 ///
 /// # Compatibility
 ///
@@ -75,20 +90,30 @@ use crate::{ascii::Char, quoter::QuoterSealed, Quotable, Quoter};
 /// understand that filenames are essentially arrays of bytes, even if the OS
 /// adds some normalisation and case-insensitivity on top.
 ///
-/// If you have some expertise in this area I would love to hear from you.
-///
 #[derive(Debug, Clone, Copy)]
 pub struct Sh;
 
-impl Quoter for Sh {}
-
-/// Expose [`Quoter`] implementation as default impl too, for convenience.
-impl QuoterSealed for Sh {
-    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        Self::quote(s)
+impl QuoteInto<Vec<u8>> for Sh {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into_vec(s, out);
     }
-    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        Self::quote_into(s, sout)
+}
+
+#[cfg(unix)]
+impl QuoteInto<std::ffi::OsString> for Sh {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote_vec(s);
+        let s = std::ffi::OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Sh {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote_vec(s);
+        out.extend(s);
     }
 }
 
@@ -105,12 +130,12 @@ impl Sh {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Sh, Quoter};
-    /// assert_eq!(Sh::quote("foobar"), b"foobar");
-    /// assert_eq!(Sh::quote("foo bar"), b"foo' bar'");
+    /// # use shell_quote::Sh;
+    /// assert_eq!(Sh::quote_vec("foobar"), b"foobar");
+    /// assert_eq!(Sh::quote_vec("foo bar"), b"foo' bar'");
     /// ```
     ///
-    pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+    pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
@@ -143,15 +168,15 @@ impl Sh {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Sh, Quoter};
+    /// # use shell_quote::Sh;
     /// let mut buf = Vec::with_capacity(128);
-    /// Sh::quote_into("foobar", &mut buf);
+    /// Sh::quote_into_vec("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
-    /// Sh::quote_into("foo bar", &mut buf);
+    /// Sh::quote_into_vec("foo bar", &mut buf);
     /// assert_eq!(buf, b"foobar foo' bar'");
     /// ```
     ///
-    pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+    pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => sout.extend(b"''"),

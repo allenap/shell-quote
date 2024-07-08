@@ -15,7 +15,7 @@ mod ascii;
 mod bash;
 mod fish;
 mod sh;
-pub(crate) mod util;
+mod util;
 
 #[cfg(feature = "bash")]
 pub use bash::Bash;
@@ -34,96 +34,67 @@ pub type Dash = sh::Sh;
 #[cfg(feature = "bash")]
 pub type Zsh = bash::Bash;
 
+// ----------------------------------------------------------------------------
+
+/// Quoting/escaping a string of bytes into a shell-safe form.
+pub trait QuoteInto<OUT: ?Sized> {
+    /// Quote/escape a string of bytes into an existing container.
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OUT);
+}
+
+/// Quoting/escaping a string of bytes into a shell-safe form.
+pub trait Quote<OUT: Default>: QuoteInto<OUT> {
+    /// Quote/escape a string of bytes into a new container.
+    fn quote<'q, S: ?Sized + Into<Quotable<'q>>>(s: S) -> OUT {
+        let mut out = OUT::default();
+        Self::quote_into(s, &mut out);
+        out
+    }
+}
+
+/// Blanket [`Quote`] impl for anything that has a [`QuoteInto`] impl.
+impl<T: QuoteInto<OUT>, OUT: Default> Quote<OUT> for T {}
+
+// ----------------------------------------------------------------------------
+
 /// Extension trait for pushing shell quoted byte slices, e.g. `&[u8]`, [`&str`]
-/// – anything that's [`Quotable`] – into byte container types like [`Vec<u8>`],
+/// – anything that's [`Quotable`] – into container types like [`Vec<u8>`],
 /// [`String`], [`OsString`] on Unix, and [`bstr::BString`] if it's enabled.
 pub trait QuoteExt {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, q: Q, s: S);
+    fn push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
+    where
+        Q: QuoteInto<Self>,
+        S: ?Sized + Into<Quotable<'q>>;
 }
 
-impl QuoteExt for Vec<u8> {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, _q: Q, s: S) {
+impl<T: ?Sized> QuoteExt for T {
+    fn push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
+    where
+        Q: QuoteInto<Self>,
+        S: ?Sized + Into<Quotable<'q>>,
+    {
         Q::quote_into(s, self);
-    }
-}
-
-#[cfg(unix)]
-impl QuoteExt for OsString {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, _q: Q, s: S) {
-        use std::os::unix::ffi::OsStrExt;
-        let quoted = Q::quote(s);
-        self.push(OsStr::from_bytes(&quoted))
-    }
-}
-
-#[cfg(feature = "bstr")]
-impl QuoteExt for bstr::BString {
-    fn push_quoted<'a, Q: Quoter, S: ?Sized + Into<Quotable<'a>>>(&mut self, _q: Q, s: S) {
-        Q::quote_into(s, self)
     }
 }
 
 // ----------------------------------------------------------------------------
 
 /// Extension trait for shell quoting many different owned and reference types,
-/// e.g. `&[u8]`, [`&str`] – anything that's [`Quotable`] – into owned types
-/// like [`Vec<u8>`], [`String`], [`OsString`] on Unix, and [`bstr::BString`] if
-/// it's enabled.
-pub trait QuoteRefExt<Output> {
-    fn quoted<Q: Quoter>(self, q: Q) -> Output;
+/// e.g. `&[u8]`, [`&str`] – anything that's [`Quotable`] – into owned container
+/// types like [`Vec<u8>`], [`String`], [`OsString`] on Unix, and
+/// [`bstr::BString`] if it's enabled.
+pub trait QuoteRefExt<Output: Default> {
+    fn quoted<Q: Quote<Output>>(self, q: Q) -> Output;
 }
 
-impl<'a, S> QuoteRefExt<Vec<u8>> for S
+impl<'a, S, OUT: Default> QuoteRefExt<OUT> for S
 where
     S: ?Sized + Into<Quotable<'a>>,
 {
-    fn quoted<Q: Quoter>(self, _q: Q) -> Vec<u8> {
+    fn quoted<Q: Quote<OUT>>(self, _q: Q) -> OUT {
         Q::quote(self)
     }
 }
-
-#[cfg(unix)]
-impl<'a, S> QuoteRefExt<OsString> for S
-where
-    S: ?Sized + Into<Quotable<'a>>,
-{
-    fn quoted<Q: Quoter>(self, _q: Q) -> OsString {
-        use std::os::unix::ffi::OsStringExt;
-        let quoted = Q::quote(self);
-        OsString::from_vec(quoted)
-    }
-}
-
-#[cfg(feature = "bstr")]
-impl<'a, S> QuoteRefExt<bstr::BString> for S
-where
-    S: ?Sized + Into<Quotable<'a>>,
-{
-    fn quoted<Q: Quoter>(self, _q: Q) -> bstr::BString {
-        let quoted = Q::quote(self);
-        bstr::BString::from(quoted)
-    }
-}
-
-// ----------------------------------------------------------------------------
-
-pub(crate) mod quoter {
-    pub trait QuoterSealed {
-        /// Quote/escape a string of bytes into a new [`Vec<u8>`].
-        fn quote<'a, S: ?Sized + Into<super::Quotable<'a>>>(s: S) -> Vec<u8>;
-
-        /// Quote/escape a string of bytes into an existing [`Vec<u8>`].
-        fn quote_into<'a, S: ?Sized + Into<super::Quotable<'a>>>(s: S, sout: &mut Vec<u8>);
-    }
-}
-
-/// A trait for quoting/escaping a string of bytes into a shell-safe form.
-///
-/// **This trait is sealed** and cannot be implemented outside of this crate.
-/// This is because the [`QuoteExt`] implementation for [`String`] must be sure
-/// that quoted bytes are valid UTF-8, and that is only possible if the
-/// implementation is known and tested in advance.
-pub trait Quoter: quoter::QuoterSealed {}
 
 // ----------------------------------------------------------------------------
 

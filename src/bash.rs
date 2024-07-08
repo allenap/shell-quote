@@ -1,6 +1,6 @@
 #![cfg(feature = "bash")]
 
-use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable, Quoter};
+use crate::{ascii::Char, util::u8_to_hex_escape, Quotable, QuoteInto};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -61,25 +61,45 @@ use crate::{ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape, Quotable,
 /// understand that filenames are essentially arrays of bytes, even if the OS
 /// adds some normalisation and case-insensitivity on top.
 ///
-/// If you have some expertise in this area I would love to hear from you.
-///
 /// [ansi-c-quoting]:
 ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
 ///
 #[derive(Debug, Clone, Copy)]
 pub struct Bash;
 
-impl Quoter for Bash {}
+// ----------------------------------------------------------------------------
 
-/// Expose [`Quoter`] implementation as default impl too, for convenience.
-impl QuoterSealed for Bash {
-    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        Self::quote(s)
-    }
-    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        Self::quote_into(s, sout)
+impl QuoteInto<Vec<u8>> for Bash {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into_vec(s, out);
     }
 }
+
+impl QuoteInto<String> for Bash {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+        Self::quote_into_vec(s, unsafe { out.as_mut_vec() })
+    }
+}
+
+#[cfg(unix)]
+impl QuoteInto<std::ffi::OsString> for Bash {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote_vec(s);
+        let s = std::ffi::OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Bash {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote_vec(s);
+        out.extend(s);
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 impl Bash {
     /// Quote a string of bytes into a new `Vec<u8>`.
@@ -94,15 +114,15 @@ impl Bash {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Bash, Quoter};
-    /// assert_eq!(Bash::quote("foobar"), b"foobar");
-    /// assert_eq!(Bash::quote("foo bar"), b"$'foo bar'");
+    /// # use shell_quote::Bash;
+    /// assert_eq!(Bash::quote_vec("foobar"), b"foobar");
+    /// assert_eq!(Bash::quote_vec("foo bar"), b"$'foo bar'");
     /// ```
     ///
     /// [ansi-c-quoting]:
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
-    pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+    pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
@@ -126,15 +146,15 @@ impl Bash {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Bash, Quoter};
+    /// # use shell_quote::Bash;
     /// let mut buf = Vec::with_capacity(128);
-    /// Bash::quote_into("foobar", &mut buf);
+    /// Bash::quote_into_vec("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
-    /// Bash::quote_into("foo bar", &mut buf);
+    /// Bash::quote_into_vec("foo bar", &mut buf);
     /// assert_eq!(buf, b"foobar $'foo bar'");
     /// ```
     ///
-    pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+    pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => sout.extend(b"''"),

@@ -1,8 +1,6 @@
 #![cfg(feature = "fish")]
 
-use crate::{
-    ascii::Char, quoter::QuoterSealed, util::u8_to_hex_escape_uppercase_x, Quotable, Quoter,
-};
+use crate::{ascii::Char, util::u8_to_hex_escape_uppercase_x, Quotable, QuoteInto};
 
 /// Quote byte strings for use with fish.
 ///
@@ -25,15 +23,33 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub struct Fish;
 
-impl Quoter for Fish {}
-
-/// Expose [`Quoter`] implementation as default impl too, for convenience.
-impl QuoterSealed for Fish {
-    fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        Self::quote(s)
+impl QuoteInto<Vec<u8>> for Fish {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+        Self::quote_into_vec(s, out);
     }
-    fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        Self::quote_into(s, sout)
+}
+
+impl QuoteInto<String> for Fish {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+        Self::quote_into_vec(s, unsafe { out.as_mut_vec() })
+    }
+}
+
+#[cfg(unix)]
+impl QuoteInto<std::ffi::OsString> for Fish {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        let s = Self::quote_vec(s);
+        let s = std::ffi::OsString::from_vec(s);
+        out.push(s);
+    }
+}
+
+#[cfg(feature = "bstr")]
+impl QuoteInto<bstr::BString> for Fish {
+    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+        let s = Self::quote_vec(s);
+        out.extend(s);
     }
 }
 
@@ -50,11 +66,11 @@ impl Fish {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Fish, Quoter};
-    /// assert_eq!(Fish::quote("foobar"), b"foobar");
-    /// assert_eq!(Fish::quote("foo 'bar"), b"foo' \\'bar'");
+    /// # use shell_quote::Fish;
+    /// assert_eq!(Fish::quote_vec("foobar"), b"foobar");
+    /// assert_eq!(Fish::quote_vec("foo 'bar"), b"foo' \\'bar'");
     /// ```
-    pub fn quote<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+    pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
@@ -74,15 +90,15 @@ impl Fish {
     /// # Examples
     ///
     /// ```
-    /// # use shell_quote::{Fish, Quoter};
+    /// # use shell_quote::Fish;
     /// let mut buf = Vec::with_capacity(128);
-    /// Fish::quote_into("foobar", &mut buf);
+    /// Fish::quote_into_vec("foobar", &mut buf);
     /// buf.push(b' ');  // Add a space.
-    /// Fish::quote_into("foo 'bar", &mut buf);
+    /// Fish::quote_into_vec("foo 'bar", &mut buf);
     /// assert_eq!(buf, b"foobar foo' \\'bar'");
     /// ```
     ///
-    pub fn quote_into<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+    pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         let sin: Quotable<'a> = s.into();
         match escape_prepare(sin.bytes) {
             Prepared::Empty => sout.extend(b"''"),
