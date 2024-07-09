@@ -1,5 +1,6 @@
 #![cfg(feature = "sh")]
 
+mod resources;
 mod util;
 
 // -- Helpers -----------------------------------------------------------------
@@ -36,6 +37,8 @@ pub(crate) fn invoke_zsh_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output>
 mod sh_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    use crate::resources;
 
     use super::util::{find_bins, invoke_shell};
     use super::{invoke_bash_as_sh, invoke_zsh_as_sh};
@@ -100,7 +103,7 @@ mod sh_impl {
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
-    fn script() -> (OsString, OsString) {
+    fn script_bytes() -> (OsString, OsString) {
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
@@ -116,8 +119,8 @@ mod sh_impl {
     }
 
     #[test]
-    fn test_roundtrip_sh() {
-        let (input, script) = script();
+    fn test_roundtrip_bytes_sh() {
+        let (input, script) = script_bytes();
         for bin in find_bins("sh") {
             let output = invoke_shell(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
@@ -126,8 +129,8 @@ mod sh_impl {
     }
 
     #[test]
-    fn test_roundtrip_dash() {
-        let (input, script) = script();
+    fn test_roundtrip_bytes_dash() {
+        let (input, script) = script_bytes();
         for bin in find_bins("dash") {
             let output = invoke_shell(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
@@ -136,8 +139,8 @@ mod sh_impl {
     }
 
     #[test]
-    fn test_roundtrip_bash() {
-        let (input, script) = script();
+    fn test_roundtrip_bytes_bash() {
+        let (input, script) = script_bytes();
         for bin in find_bins("bash") {
             let output = invoke_shell(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
@@ -146,8 +149,8 @@ mod sh_impl {
     }
 
     #[test]
-    fn test_roundtrip_bash_as_sh() {
-        let (input, script) = script();
+    fn test_roundtrip_bytes_bash_as_sh() {
+        let (input, script) = script_bytes();
         for bin in find_bins("bash") {
             let output = invoke_bash_as_sh(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
@@ -156,8 +159,8 @@ mod sh_impl {
     }
 
     #[test]
-    fn test_roundtrip_zsh() {
-        let (input, script) = script();
+    fn test_roundtrip_bytes_zsh() {
+        let (input, script) = script_bytes();
         for bin in find_bins("zsh") {
             let output = invoke_shell(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);
@@ -166,8 +169,81 @@ mod sh_impl {
     }
 
     #[test]
-    fn test_roundtrip_zsh_as_sh() {
-        let (input, script) = script();
+    fn test_roundtrip_bytes_zsh_as_sh() {
+        let (input, script) = script_bytes();
+        for bin in find_bins("zsh") {
+            let output = invoke_zsh_as_sh(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    fn script_text() -> (OsString, OsString) {
+        // NOTE: Do NOT use `echo` here; in most/all shells it interprets
+        // escapes with no way to disable that behaviour (unlike the `echo`
+        // builtin in Bash, for example, which accepts a `-E` flag). Using
+        // `printf %s` seems to do the right thing in most shells, i.e. it does
+        // not interpret the arguments in any way.
+        let mut script = b"printf %s ".to_vec();
+        Sh::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
+        let input: OsString = resources::UTF8_SAMPLE.into();
+        let script = OsString::from_vec(script);
+        (input, script)
+    }
+
+    #[test]
+    fn test_roundtrip_text_sh() {
+        let (input, script) = script_text();
+        for bin in find_bins("sh") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_text_dash() {
+        let (input, script) = script_text();
+        for bin in find_bins("dash") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_text_bash() {
+        let (input, script) = script_text();
+        for bin in find_bins("bash") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_text_bash_as_sh() {
+        let (input, script) = script_text();
+        for bin in find_bins("bash") {
+            let output = invoke_bash_as_sh(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_text_zsh() {
+        let (input, script) = script_text();
+        for bin in find_bins("zsh") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let observed = OsString::from_vec(output.stdout);
+            assert_eq!(observed, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_text_zsh_as_sh() {
+        let (input, script) = script_text();
         for bin in find_bins("zsh") {
             let output = invoke_zsh_as_sh(&bin, &script).unwrap();
             let observed = OsString::from_vec(output.stdout);

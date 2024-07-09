@@ -1,5 +1,6 @@
 #![cfg(feature = "fish")]
 
+mod resources;
 mod util;
 
 // -- impl Fish ---------------------------------------------------------------
@@ -7,6 +8,8 @@ mod util;
 mod fish_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    use crate::resources;
 
     use super::util::{find_bins, invoke_shell};
     use shell_quote::Fish;
@@ -91,20 +94,36 @@ mod fish_impl {
     }
 
     #[test]
-    fn test_roundtrip() {
+    fn test_roundtrip_bytes() {
         // Unlike many/most other shells, `echo` is safe here because backslash
         // escapes are _not_ interpreted by default.
         let mut script = b"echo -n -- ".to_vec();
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
-        let string: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
-        Fish::quote_into_vec(string.as_bytes(), &mut script);
+        let input: OsString = OsString::from_vec((1u8..=u8::MAX).collect());
+        Fish::quote_into_vec(input.as_bytes(), &mut script);
         let script = OsString::from_vec(script);
         // Test with every version of `fish` we find on `PATH`.
         for bin in find_bins("fish") {
             let output = invoke_shell(&bin, &script).unwrap();
             let result = OsString::from_vec(output.stdout);
-            assert_eq!(result, string);
+            assert_eq!(result, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_text() {
+        // Unlike many/most other shells, `echo` is safe here because backslash
+        // escapes are _not_ interpreted by default.
+        let mut script = b"echo -n -- ".to_vec();
+        Fish::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
+        let input: OsString = resources::UTF8_SAMPLE.into();
+        let script = OsString::from_vec(script);
+        // Test with every version of `fish` we find on `PATH`.
+        for bin in find_bins("fish") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let result = OsString::from_vec(output.stdout);
+            assert_eq!(result, input);
         }
     }
 }

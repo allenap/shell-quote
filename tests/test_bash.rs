@@ -1,5 +1,6 @@
 #![cfg(feature = "bash")]
 
+mod resources;
 mod util;
 
 // -- impl Bash ---------------------------------------------------------------
@@ -7,6 +8,8 @@ mod util;
 mod bash_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    use crate::resources;
 
     use super::util::{find_bins, invoke_shell};
     use shell_quote::Bash;
@@ -76,7 +79,7 @@ mod bash_impl {
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
-    fn script() -> (OsString, OsString) {
+    fn script_bytes() -> (OsString, OsString) {
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
@@ -92,8 +95,8 @@ mod bash_impl {
     }
 
     #[test]
-    fn test_roundtrip_bash() {
-        let (input, script) = script();
+    fn test_roundtrip_bash_bytes() {
+        let (input, script) = script_bytes();
         for bin in find_bins("bash") {
             let output = invoke_shell(&bin, &script).unwrap();
             let result = OsString::from_vec(output.stdout);
@@ -102,8 +105,40 @@ mod bash_impl {
     }
 
     #[test]
-    fn test_roundtrip_zsh() {
-        let (input, script) = script();
+    fn test_roundtrip_zsh_bytes() {
+        let (input, script) = script_bytes();
+        for bin in find_bins("zsh") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let result = OsString::from_vec(output.stdout);
+            assert_eq!(result, input);
+        }
+    }
+
+    fn script_text() -> (OsString, OsString) {
+        // NOTE: Do NOT use `echo` here; in most/all shells it interprets
+        // escapes with no way to disable that behaviour (unlike the `echo`
+        // builtin in Bash, for example, which accepts a `-E` flag). Using
+        // `printf %s` seems to do the right thing in most shells, i.e. it does
+        // not interpret the arguments in any way.
+        let mut script = b"printf %s ".to_vec();
+        Bash::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
+        let script = OsString::from_vec(script);
+        (resources::UTF8_SAMPLE.into(), script)
+    }
+
+    #[test]
+    fn test_roundtrip_bash_text() {
+        let (input, script) = script_text();
+        for bin in find_bins("bash") {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let result = OsString::from_vec(output.stdout);
+            assert_eq!(result, input);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_zsh_text() {
+        let (input, script) = script_text();
         for bin in find_bins("zsh") {
             let output = invoke_shell(&bin, &script).unwrap();
             let result = OsString::from_vec(output.stdout);
