@@ -57,6 +57,12 @@ mod bash_impl {
     }
 
     #[test]
+    fn test_utf8() {
+        // UTF-8 for code points U+0080 and above is included verbatim.
+        assert_eq!(Bash::quote_vec("Hello 👋"), b"$'Hello \xf0\x9f\x91\x8b'");
+    }
+
+    #[test]
     fn test_escape_into_plain() {
         let mut buffer = Vec::new();
         Bash::quote_into_vec("hello", &mut buffer);

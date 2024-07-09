@@ -1,6 +1,6 @@
 #![cfg(feature = "fish")]
 
-use crate::{ascii::Char, util::u8_to_hex_escape_uppercase_x, Quotable, QuoteInto};
+use crate::{Quotable, QuoteInto};
 
 /// Quote byte strings for use with fish.
 ///
@@ -71,15 +71,25 @@ impl Fish {
     /// assert_eq!(Fish::quote_vec("foo 'bar"), b"foo' \\'bar'");
     /// ```
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        let sin: Quotable<'a> = s.into();
-        match escape_prepare(sin.bytes) {
-            Prepared::Empty => vec![b'\'', b'\''],
-            Prepared::Inert => sin.bytes.into(),
-            Prepared::Escape(esc) => {
-                let mut sout = Vec::with_capacity(esc.len() + 2);
-                escape_chars(esc, &mut sout); // Do the work.
-                sout
-            }
+        match s.into() {
+            Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
+                bytes::Prepared::Empty => vec![b'\'', b'\''],
+                bytes::Prepared::Inert => bytes.into(),
+                bytes::Prepared::Escape(esc) => {
+                    let mut sout = Vec::with_capacity(esc.len() + 2);
+                    bytes::escape_chars(esc, &mut sout); // Do the work.
+                    sout
+                }
+            },
+            Quotable::Text(text) => match text::escape_prepare(text) {
+                text::Prepared::Empty => vec![b'\'', b'\''],
+                text::Prepared::Inert => text.into(),
+                text::Prepared::Escape(esc) => {
+                    let mut sout = Vec::with_capacity(esc.len() + 2);
+                    text::escape_chars(esc, &mut sout); // Do the work.
+                    sout
+                }
+            },
         }
     }
 
@@ -99,85 +109,174 @@ impl Fish {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        let sin: Quotable<'a> = s.into();
-        match escape_prepare(sin.bytes) {
-            Prepared::Empty => sout.extend(b"''"),
-            Prepared::Inert => sout.extend(sin.bytes),
-            Prepared::Escape(esc) => {
-                sout.reserve(esc.len() + 2);
-                escape_chars(esc, sout); // Do the work.
-            }
+        match s.into() {
+            Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
+                bytes::Prepared::Empty => sout.extend(b"''"),
+                bytes::Prepared::Inert => sout.extend(bytes),
+                bytes::Prepared::Escape(esc) => {
+                    sout.reserve(esc.len() + 2);
+                    bytes::escape_chars(esc, sout); // Do the work.
+                }
+            },
+            Quotable::Text(text) => match text::escape_prepare(text) {
+                text::Prepared::Empty => sout.extend(b"''"),
+                text::Prepared::Inert => sout.extend(text.as_bytes()),
+                text::Prepared::Escape(esc) => {
+                    sout.reserve(esc.len() + 2);
+                    text::escape_chars(esc, sout); // Do the work.
+                }
+            },
         }
     }
 }
 
 // ----------------------------------------------------------------------------
 
-enum Prepared {
-    Empty,
-    Inert,
-    Escape(Vec<Char>),
-}
+mod bytes {
+    use crate::{ascii::Char, util::u8_to_hex_escape_uppercase_x};
 
-fn escape_prepare(sin: &[u8]) -> Prepared {
-    let esc: Vec<_> = sin.iter().map(Char::from).collect();
-    // An optimisation: if the string is not empty and contains only "safe"
-    // characters we can avoid further work.
-    if esc.is_empty() {
-        Prepared::Empty
-    } else if esc.iter().all(Char::is_inert) {
-        Prepared::Inert
-    } else {
-        Prepared::Escape(esc)
+    pub enum Prepared {
+        Empty,
+        Inert,
+        Escape(Vec<Char>),
     }
-}
 
-fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    #[derive(PartialEq)]
-    enum QuoteStyle {
-        Inside,
-        Outside,
-        Whatever,
-    }
-    use QuoteStyle::*;
-
-    let mut inside_quotes_now = false;
-    let mut push_literal = |style: QuoteStyle, literal: &[u8]| {
-        match (inside_quotes_now, style) {
-            (true, Outside) => {
-                sout.push(b'\'');
-                inside_quotes_now = false;
-            }
-            (false, Inside) => {
-                sout.push(b'\'');
-                inside_quotes_now = true;
-            }
-            _ => (),
-        }
-        sout.extend(literal);
-    };
-    for mode in esc {
-        use Char::*;
-        match mode {
-            Bell => push_literal(Outside, b"\\a"),
-            Backspace => push_literal(Outside, b"\\b"),
-            Escape => push_literal(Outside, b"\\e"),
-            FormFeed => push_literal(Outside, b"\\f"),
-            NewLine => push_literal(Outside, b"\\n"),
-            CarriageReturn => push_literal(Outside, b"\\r"),
-            HorizontalTab => push_literal(Outside, b"\\t"),
-            VerticalTab => push_literal(Outside, b"\\v"),
-            Control(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
-            Backslash => push_literal(Whatever, b"\\\\"),
-            SingleQuote => push_literal(Whatever, b"\\'"),
-            DoubleQuote => push_literal(Inside, b"\""),
-            Delete => push_literal(Outside, b"\\X7F"),
-            PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
-            Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
-            Extended(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
+    pub fn escape_prepare(sin: &[u8]) -> Prepared {
+        let esc: Vec<_> = sin.iter().map(Char::from).collect();
+        // An optimisation: if the string is not empty and contains only "safe"
+        // characters we can avoid further work.
+        if esc.is_empty() {
+            Prepared::Empty
+        } else if esc.iter().all(Char::is_inert) {
+            Prepared::Inert
+        } else {
+            Prepared::Escape(esc)
         }
     }
-    if inside_quotes_now {
-        sout.push(b'\'');
+
+    pub fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
+        #[derive(PartialEq)]
+        enum QuoteStyle {
+            Inside,
+            Outside,
+            Whatever,
+        }
+        use QuoteStyle::*;
+
+        let mut inside_quotes_now = false;
+        let mut push_literal = |style: QuoteStyle, literal: &[u8]| {
+            match (inside_quotes_now, style) {
+                (true, Outside) => {
+                    sout.push(b'\'');
+                    inside_quotes_now = false;
+                }
+                (false, Inside) => {
+                    sout.push(b'\'');
+                    inside_quotes_now = true;
+                }
+                _ => (),
+            }
+            sout.extend(literal);
+        };
+        for mode in esc {
+            use Char::*;
+            match mode {
+                Bell => push_literal(Outside, b"\\a"),
+                Backspace => push_literal(Outside, b"\\b"),
+                Escape => push_literal(Outside, b"\\e"),
+                FormFeed => push_literal(Outside, b"\\f"),
+                NewLine => push_literal(Outside, b"\\n"),
+                CarriageReturn => push_literal(Outside, b"\\r"),
+                HorizontalTab => push_literal(Outside, b"\\t"),
+                VerticalTab => push_literal(Outside, b"\\v"),
+                Control(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
+                Backslash => push_literal(Whatever, b"\\\\"),
+                SingleQuote => push_literal(Whatever, b"\\'"),
+                DoubleQuote => push_literal(Inside, b"\""),
+                Delete => push_literal(Outside, b"\\X7F"),
+                PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
+                Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
+                Extended(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
+            }
+        }
+        if inside_quotes_now {
+            sout.push(b'\'');
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+mod text {
+    use crate::{utf8::Char, util::u8_to_hex_escape_uppercase_x};
+
+    pub enum Prepared {
+        Empty,
+        Inert,
+        Escape(Vec<Char>),
+    }
+
+    pub fn escape_prepare(sin: &str) -> Prepared {
+        let esc: Vec<_> = sin.chars().map(Char::from).collect();
+        // An optimisation: if the string is not empty and contains only "safe"
+        // characters we can avoid further work.
+        if esc.is_empty() {
+            Prepared::Empty
+        } else if esc.iter().all(Char::is_inert) {
+            Prepared::Inert
+        } else {
+            Prepared::Escape(esc)
+        }
+    }
+
+    pub fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
+        #[derive(PartialEq)]
+        enum QuoteStyle {
+            Inside,
+            Outside,
+            Whatever,
+        }
+        use QuoteStyle::*;
+
+        let mut inside_quotes_now = false;
+        let mut push_literal = |style: QuoteStyle, literal: &[u8]| {
+            match (inside_quotes_now, style) {
+                (true, Outside) => {
+                    sout.push(b'\'');
+                    inside_quotes_now = false;
+                }
+                (false, Inside) => {
+                    sout.push(b'\'');
+                    inside_quotes_now = true;
+                }
+                _ => (),
+            }
+            sout.extend(literal);
+        };
+        let buf = &mut [0u8; 4];
+        for mode in esc {
+            use Char::*;
+            match mode {
+                Bell => push_literal(Outside, b"\\a"),
+                Backspace => push_literal(Outside, b"\\b"),
+                Escape => push_literal(Outside, b"\\e"),
+                FormFeed => push_literal(Outside, b"\\f"),
+                NewLine => push_literal(Outside, b"\\n"),
+                CarriageReturn => push_literal(Outside, b"\\r"),
+                HorizontalTab => push_literal(Outside, b"\\t"),
+                VerticalTab => push_literal(Outside, b"\\v"),
+                Control(ch) => push_literal(Outside, &u8_to_hex_escape_uppercase_x(ch)),
+                Backslash => push_literal(Whatever, b"\\\\"),
+                SingleQuote => push_literal(Whatever, b"\\'"),
+                DoubleQuote => push_literal(Inside, b"\""),
+                Delete => push_literal(Outside, b"\\X7F"),
+                PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
+                Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
+                Utf8(char) => push_literal(Whatever, char.encode_utf8(buf).as_bytes()),
+            }
+        }
+        if inside_quotes_now {
+            sout.push(b'\'');
+        }
     }
 }

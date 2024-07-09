@@ -136,10 +136,13 @@ impl Sh {
     /// ```
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        let sin: Quotable<'a> = s.into();
-        match escape_prepare(sin.bytes) {
+        let bytes = match s.into() {
+            Quotable::Bytes(bytes) => bytes,
+            Quotable::Text(s) => s.as_bytes(),
+        };
+        match escape_prepare(bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
-            Prepared::Inert => sin.bytes.into(),
+            Prepared::Inert => bytes.into(),
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
@@ -177,10 +180,13 @@ impl Sh {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        let sin: Quotable<'a> = s.into();
-        match escape_prepare(sin.bytes) {
+        let bytes = match s.into() {
+            Quotable::Bytes(bytes) => bytes,
+            Quotable::Text(s) => s.as_bytes(),
+        };
+        match escape_prepare(bytes) {
             Prepared::Empty => sout.extend(b"''"),
-            Prepared::Inert => sout.extend(sin.bytes),
+            Prepared::Inert => sout.extend(bytes),
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
@@ -228,8 +234,8 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
     for mode in esc {
         use Char::*;
         match mode {
-            PrintableInert(ch) => sout.push(ch),
-            Control(ch) | Printable(ch) | Extended(ch) => {
+            PrintableInert(ch) | Extended(ch) => sout.push(ch),
+            Control(ch) | Printable(ch) => {
                 if inside_quotes_now {
                     sout.push(ch);
                 } else {

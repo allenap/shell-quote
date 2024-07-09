@@ -1,6 +1,6 @@
 #![cfg(feature = "bash")]
 
-use crate::{ascii::Char, util::u8_to_hex_escape, Quotable, QuoteInto};
+use crate::{Quotable, QuoteInto};
 
 /// Quote byte strings for use with Bash, the GNU Bourne-Again Shell.
 ///
@@ -123,19 +123,33 @@ impl Bash {
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        let sin: Quotable<'a> = s.into();
-        match escape_prepare(sin.bytes) {
-            Prepared::Empty => vec![b'\'', b'\''],
-            Prepared::Inert => sin.bytes.into(),
-            Prepared::Escape(esc) => {
-                // This may be a pointless optimisation, but calculate the
-                // memory needed to avoid reallocations as we construct the
-                // output. Since we'll generate a $'…' string, add 3 bytes.
-                let size: usize = esc.iter().map(escape_size).sum();
-                let mut sout = Vec::with_capacity(size + 3);
-                escape_chars(esc, &mut sout); // Do the work.
-                sout
-            }
+        match s.into() {
+            Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
+                bytes::Prepared::Empty => vec![b'\'', b'\''],
+                bytes::Prepared::Inert => bytes.into(),
+                bytes::Prepared::Escape(esc) => {
+                    // This may be a pointless optimisation, but calculate the
+                    // memory needed to avoid reallocations as we construct the
+                    // output. Since we'll generate a $'…' string, add 3 bytes.
+                    let size: usize = esc.iter().map(bytes::escape_size).sum();
+                    let mut sout = Vec::with_capacity(size + 3);
+                    bytes::escape_chars(esc, &mut sout); // Do the work.
+                    sout
+                }
+            },
+            Quotable::Text(text) => match text::escape_prepare(text) {
+                text::Prepared::Empty => vec![b'\'', b'\''],
+                text::Prepared::Inert => text.into(),
+                text::Prepared::Escape(esc) => {
+                    // This may be a pointless optimisation, but calculate the
+                    // memory needed to avoid reallocations as we construct the
+                    // output. Since we'll generate a $'…' string, add 3 bytes.
+                    let size: usize = esc.iter().map(text::escape_size).sum();
+                    let mut sout = Vec::with_capacity(size + 3);
+                    text::escape_chars(esc, &mut sout); // Do the work.
+                    sout
+                }
+            },
         }
     }
 
@@ -155,90 +169,184 @@ impl Bash {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        let sin: Quotable<'a> = s.into();
-        match escape_prepare(sin.bytes) {
-            Prepared::Empty => sout.extend(b"''"),
-            Prepared::Inert => sout.extend(sin.bytes),
-            Prepared::Escape(esc) => {
-                // This may be a pointless optimisation, but calculate the
-                // memory needed to avoid reallocations as we construct the
-                // output. Since we'll generate a $'…' string, add 3 bytes.
-                let size: usize = esc.iter().map(escape_size).sum();
-                sout.reserve(size + 3);
-                let cap = sout.capacity();
-                escape_chars(esc, sout); // Do the work.
-                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
-            }
+        match s.into() {
+            Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
+                bytes::Prepared::Empty => sout.extend(b"''"),
+                bytes::Prepared::Inert => sout.extend(bytes),
+                bytes::Prepared::Escape(esc) => {
+                    // This may be a pointless optimisation, but calculate the
+                    // memory needed to avoid reallocations as we construct the
+                    // output. Since we'll generate a $'…' string, add 3 bytes.
+                    let size: usize = esc.iter().map(bytes::escape_size).sum();
+                    sout.reserve(size + 3);
+                    let cap = sout.capacity();
+                    bytes::escape_chars(esc, sout); // Do the work.
+                    debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                }
+            },
+            Quotable::Text(text) => match text::escape_prepare(text) {
+                text::Prepared::Empty => sout.extend(b"''"),
+                text::Prepared::Inert => sout.extend(text.as_bytes()),
+                text::Prepared::Escape(esc) => {
+                    // This may be a pointless optimisation, but calculate the
+                    // memory needed to avoid reallocations as we construct the
+                    // output. Since we'll generate a $'…' string, add 3 bytes.
+                    let size: usize = esc.iter().map(text::escape_size).sum();
+                    sout.reserve(size + 3);
+                    let cap = sout.capacity();
+                    text::escape_chars(esc, sout); // Do the work.
+                    debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                }
+            },
         }
     }
 }
 
 // ----------------------------------------------------------------------------
 
-enum Prepared {
-    Empty,
-    Inert,
-    Escape(Vec<Char>),
-}
+mod bytes {
+    use crate::{ascii::Char, util::u8_to_hex_escape};
 
-fn escape_prepare(sin: &[u8]) -> Prepared {
-    let esc: Vec<_> = sin.iter().map(Char::from).collect();
-    // An optimisation: if the string is not empty and contains only "safe"
-    // characters we can avoid further work.
-    if esc.is_empty() {
-        Prepared::Empty
-    } else if esc.iter().all(Char::is_inert) {
-        Prepared::Inert
-    } else {
-        Prepared::Escape(esc)
+    pub enum Prepared {
+        Empty,
+        Inert,
+        Escape(Vec<Char>),
     }
-}
 
-fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    // Push a Bash-style $'...' quoted string into `sout`.
-    sout.extend(b"$'");
-    for mode in esc {
-        use Char::*;
-        match mode {
-            Bell => sout.extend(b"\\a"),
-            Backspace => sout.extend(b"\\b"),
-            Escape => sout.extend(b"\\e"),
-            FormFeed => sout.extend(b"\\f"),
-            NewLine => sout.extend(b"\\n"),
-            CarriageReturn => sout.extend(b"\\r"),
-            HorizontalTab => sout.extend(b"\\t"),
-            VerticalTab => sout.extend(b"\\v"),
-            Control(ch) => sout.extend(&u8_to_hex_escape(ch)),
-            Backslash => sout.extend(b"\\\\"),
-            SingleQuote => sout.extend(b"\\'"),
-            DoubleQuote => sout.extend(b"\""),
-            Delete => sout.extend(b"\\x7F"),
-            PrintableInert(ch) => sout.push(ch),
-            Printable(ch) => sout.push(ch),
-            Extended(ch) => sout.extend(&u8_to_hex_escape(ch)),
+    pub fn escape_prepare(sin: &[u8]) -> Prepared {
+        let esc: Vec<_> = sin.iter().map(Char::from).collect();
+        // An optimisation: if the string is not empty and contains only "safe"
+        // characters we can avoid further work.
+        if esc.is_empty() {
+            Prepared::Empty
+        } else if esc.iter().all(Char::is_inert) {
+            Prepared::Inert
+        } else {
+            Prepared::Escape(esc)
         }
     }
-    sout.push(b'\'');
+
+    pub fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
+        // Push a Bash-style $'...' quoted string into `sout`.
+        sout.extend(b"$'");
+        for mode in esc {
+            use Char::*;
+            match mode {
+                Bell => sout.extend(b"\\a"),
+                Backspace => sout.extend(b"\\b"),
+                Escape => sout.extend(b"\\e"),
+                FormFeed => sout.extend(b"\\f"),
+                NewLine => sout.extend(b"\\n"),
+                CarriageReturn => sout.extend(b"\\r"),
+                HorizontalTab => sout.extend(b"\\t"),
+                VerticalTab => sout.extend(b"\\v"),
+                Control(ch) => sout.extend(&u8_to_hex_escape(ch)),
+                Backslash => sout.extend(b"\\\\"),
+                SingleQuote => sout.extend(b"\\'"),
+                DoubleQuote => sout.extend(b"\""),
+                Delete => sout.extend(b"\\x7F"),
+                PrintableInert(ch) => sout.push(ch),
+                Printable(ch) => sout.push(ch),
+                Extended(ch) => sout.extend(&u8_to_hex_escape(ch)),
+            }
+        }
+        sout.push(b'\'');
+    }
+
+    pub fn escape_size(char: &Char) -> usize {
+        use Char::*;
+        match char {
+            Bell => 2,
+            Backspace => 2,
+            Escape => 2,
+            FormFeed => 2,
+            NewLine => 2,
+            CarriageReturn => 2,
+            HorizontalTab => 2,
+            VerticalTab => 2,
+            Control(_) => 4,
+            Backslash => 2,
+            SingleQuote => 2,
+            DoubleQuote => 1,
+            Delete => 4,
+            PrintableInert(_) => 1,
+            Printable(_) => 1,
+            Extended(_) => 4,
+        }
+    }
 }
 
-fn escape_size(char: &Char) -> usize {
-    use Char::*;
-    match char {
-        Bell => 2,
-        Backspace => 2,
-        Escape => 2,
-        FormFeed => 2,
-        NewLine => 2,
-        CarriageReturn => 2,
-        HorizontalTab => 2,
-        VerticalTab => 2,
-        Control(_) => 4,
-        Backslash => 2,
-        SingleQuote => 2,
-        DoubleQuote => 1,
-        Delete => 4,
-        PrintableInert(_) => 1,
-        Printable(_) => 1,
-        Extended(_) => 4,
+// ----------------------------------------------------------------------------
+
+mod text {
+    use crate::{utf8::Char, util::u8_to_hex_escape};
+
+    pub enum Prepared {
+        Empty,
+        Inert,
+        Escape(Vec<Char>),
+    }
+
+    pub fn escape_prepare(sin: &str) -> Prepared {
+        let esc: Vec<_> = sin.chars().map(Char::from).collect();
+        // An optimisation: if the string is not empty and contains only "safe"
+        // characters we can avoid further work.
+        if esc.is_empty() {
+            Prepared::Empty
+        } else if esc.iter().all(Char::is_inert) {
+            Prepared::Inert
+        } else {
+            Prepared::Escape(esc)
+        }
+    }
+
+    pub fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
+        // Push a Bash-style $'...' quoted string into `sout`.
+        sout.extend(b"$'");
+        let buf = &mut [0u8; 4];
+        for mode in esc {
+            use Char::*;
+            match mode {
+                Bell => sout.extend(b"\\a"),
+                Backspace => sout.extend(b"\\b"),
+                Escape => sout.extend(b"\\e"),
+                FormFeed => sout.extend(b"\\f"),
+                NewLine => sout.extend(b"\\n"),
+                CarriageReturn => sout.extend(b"\\r"),
+                HorizontalTab => sout.extend(b"\\t"),
+                VerticalTab => sout.extend(b"\\v"),
+                Control(ch) => sout.extend(&u8_to_hex_escape(ch)),
+                Backslash => sout.extend(b"\\\\"),
+                SingleQuote => sout.extend(b"\\'"),
+                DoubleQuote => sout.extend(b"\""),
+                Delete => sout.extend(b"\\x7F"),
+                PrintableInert(ch) => sout.push(ch),
+                Printable(ch) => sout.push(ch),
+                Utf8(ch) => sout.extend(ch.encode_utf8(buf).as_bytes()),
+            }
+        }
+        sout.push(b'\'');
+    }
+
+    pub fn escape_size(ch: &Char) -> usize {
+        use Char::*;
+        match ch {
+            Bell => 2,
+            Backspace => 2,
+            Escape => 2,
+            FormFeed => 2,
+            NewLine => 2,
+            CarriageReturn => 2,
+            HorizontalTab => 2,
+            VerticalTab => 2,
+            Control(_) => 4,
+            Backslash => 2,
+            SingleQuote => 2,
+            DoubleQuote => 1,
+            Delete => 4,
+            PrintableInert(_) => 1,
+            Printable(_) => 1,
+            Utf8(ch) => ch.len_utf8(),
+        }
     }
 }

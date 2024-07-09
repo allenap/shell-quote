@@ -58,6 +58,12 @@ mod fish_impl {
     }
 
     #[test]
+    fn test_utf8() {
+        // UTF-8 for code points U+0080 and above is included verbatim.
+        assert_eq!(Fish::quote_vec("Hello 👋"), b"Hello' \xf0\x9f\x91\x8b'");
+    }
+
+    #[test]
     fn test_multiple_parts() {
         assert_eq!(Fish::quote_vec("\x00AA12"), b"\\X00AA12");
         assert_eq!(Fish::quote_vec("\x07A\x06B\x07"), b"\\aA\\X06B\\a");
