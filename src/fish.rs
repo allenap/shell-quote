@@ -4,6 +4,24 @@ use crate::{Quotable, QuoteInto};
 
 /// Quote byte strings for use with fish.
 ///
+/// # ⚠️ Warning
+///
+/// Prior to version 3.6.2, fish did not correctly handle some Unicode code
+/// points encoded as UTF-8. From the [version 3.6.2 release notes][]:
+///
+/// > fish uses certain Unicode non-characters internally for marking wildcards
+/// > and expansions. It incorrectly allowed these markers to be read on command
+/// > substitution output, rather than transforming them into a safe internal
+/// > representation.
+///
+/// [version 3.6.2 release notes]:
+///   https://github.com/fish-shell/fish-shell/releases/tag/3.6.2
+///
+/// At present this crate has **no workaround** for this issue. Please use fish
+/// 3.6.2 or later.
+///
+/// # Notes
+///
 /// The documentation on [quoting][] and [escaping characters][] in fish is
 /// confusing at first, especially when coming from a Bourne-like shell, but
 /// essentially we have to be able to move and and out of a quoted string
