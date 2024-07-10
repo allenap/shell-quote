@@ -36,7 +36,6 @@ pub(crate) fn invoke_zsh_as_sh(bin: &Path, script: &OsStr) -> io::Result<Output>
 
 mod sh_impl {
     use std::ffi::{OsStr, OsString};
-    use std::os::unix::ffi::{OsStrExt, OsStringExt};
     use std::{io::Result, path::Path, process::Output};
 
     use super::util::{find_bins, invoke_shell};
@@ -105,6 +104,7 @@ mod sh_impl {
 
     type InvokeShell = fn(&Path, &OsStr) -> Result<Output>;
 
+    #[cfg(unix)]
     #[test_matrix(
         (script_bytes,
          script_text),
@@ -116,6 +116,7 @@ mod sh_impl {
          ("zsh", invoke_zsh_as_sh))
     )]
     fn test_roundtrip(prepare: fn() -> (OsString, OsString), (shell, invoke): (&str, InvokeShell)) {
+        use std::os::unix::ffi::OsStringExt;
         let (input, script) = prepare();
         for bin in find_bins(shell) {
             let output = invoke(&bin, &script).unwrap();
@@ -124,7 +125,9 @@ mod sh_impl {
         }
     }
 
+    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
@@ -139,7 +142,9 @@ mod sh_impl {
         (input, script)
     }
 
+    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
+        use std::os::unix::ffi::OsStringExt;
         // NOTE: Do NOT use `echo` here; in most/all shells it interprets
         // escapes with no way to disable that behaviour (unlike the `echo`
         // builtin in Bash, for example, which accepts a `-E` flag). Using
@@ -152,6 +157,7 @@ mod sh_impl {
         (input, script)
     }
 
+    #[cfg(unix)]
     #[test_matrix(
         (("sh", invoke_shell),
          ("dash", invoke_shell),
@@ -161,6 +167,7 @@ mod sh_impl {
          ("zsh", invoke_zsh_as_sh))
     )]
     fn test_roundtrip_utf8_full((shell, invoke): (&str, InvokeShell)) {
+        use std::os::unix::ffi::OsStringExt;
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins(shell) {
             // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
@@ -180,6 +187,8 @@ mod sh_impl {
 // -- QuoteExt ----------------------------------------------------------------
 
 mod sh_quote_ext {
+    use std::ffi::OsString;
+
     use shell_quote::{QuoteExt, Sh};
 
     #[test]
@@ -193,8 +202,6 @@ mod sh_quote_ext {
     #[cfg(unix)]
     #[test]
     fn test_os_string_push_quoted() {
-        use std::ffi::OsString;
-
         let mut buffer: OsString = "Hello, ".into();
         buffer.push_quoted(Sh, "World, Bob, !@#$%^&*(){}[]");
         let string = buffer.into_string().unwrap(); // -> test failures are more readable.

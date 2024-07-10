@@ -38,10 +38,8 @@ static FISH_VERSION_UNICODE_FIXED: semver::Version = semver::Version::new(3, 6, 
 
 // -- impl Fish ---------------------------------------------------------------
 
-#[cfg(unix)]
 mod fish_impl {
     use std::ffi::OsString;
-    use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
     use super::{
         resources,
@@ -129,8 +127,10 @@ mod fish_impl {
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
+    #[cfg(unix)]
     #[test_matrix((script_bytes, script_text))]
     fn test_roundtrip(prepare: fn() -> (OsString, OsString)) {
+        use std::os::unix::ffi::OsStringExt;
         let (input, script) = prepare();
         // Test with every version of `fish` we find on `PATH`.
         for bin in find_bins("fish") {
@@ -140,7 +140,9 @@ mod fish_impl {
         }
     }
 
+    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
@@ -152,7 +154,9 @@ mod fish_impl {
         (input, script)
     }
 
+    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
+        use std::os::unix::ffi::OsStringExt;
         // Unlike many/most other shells, `echo` is safe here because backslash
         // escapes are _not_ interpreted by default.
         let mut script = b"echo -n -- ".to_vec();
@@ -161,8 +165,10 @@ mod fish_impl {
         (resources::UTF8_SAMPLE.into(), script)
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_roundtrip_utf8_full() {
+        use std::os::unix::ffi::OsStringExt;
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins("fish") {
             let version = super::fish_version(&bin);
@@ -183,10 +189,12 @@ mod fish_impl {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     /// IIRC, this caught bugs not found by `test_roundtrip_utf8_full`, and it
     /// was much easier to figure out what the failures meant. For now it stays!
     fn test_roundtrip_utf8_full_char_by_char() {
+        use std::os::unix::ffi::OsStringExt;
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins("fish") {
             let version = super::fish_version(&bin);
