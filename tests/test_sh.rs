@@ -103,6 +103,8 @@ mod sh_impl {
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
+    type InvokeShell = fn(&Path, &OsStr) -> Result<Output>;
+
     #[test_matrix(
         (script_bytes,
          script_text),
@@ -113,10 +115,7 @@ mod sh_impl {
          ("zsh", invoke_shell),
          ("zsh", invoke_zsh_as_sh))
     )]
-    fn test_roundtrip(
-        prepare: fn() -> (OsString, OsString),
-        (shell, invoke): (&str, fn(&Path, &OsStr) -> Result<Output>),
-    ) {
+    fn test_roundtrip(prepare: fn() -> (OsString, OsString), (shell, invoke): (&str, InvokeShell)) {
         let (input, script) = prepare();
         for bin in find_bins(shell) {
             let output = invoke(&bin, &script).unwrap();
@@ -161,7 +160,7 @@ mod sh_impl {
          ("zsh", invoke_shell),
          ("zsh", invoke_zsh_as_sh))
     )]
-    fn test_roundtrip_utf8_full((shell, invoke): (&str, fn(&Path, &OsStr) -> Result<Output>)) {
+    fn test_roundtrip_utf8_full((shell, invoke): (&str, InvokeShell)) {
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins(shell) {
             // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
