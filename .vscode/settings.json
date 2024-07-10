@@ -9,6 +9,7 @@
         "dollarsign",
         "dtolnay",
         "execing",
+        "getconf",
         "metacharacters",
         "POSIX",
         "Rustfmt",

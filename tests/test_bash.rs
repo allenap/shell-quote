@@ -5,6 +5,7 @@ mod util;
 
 // -- impl Bash ---------------------------------------------------------------
 
+#[cfg(unix)]
 mod bash_impl {
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
@@ -85,7 +86,7 @@ mod bash_impl {
         (script_bytes, script_text),
         ("bash", "zsh")
     )]
-    fn test_roundtrip(prepare: fn() -> (OsString, OsString), shell: impl AsRef<std::path::Path>) {
+    fn test_roundtrip(prepare: fn() -> (OsString, OsString), shell: &str) {
         let (input, script) = prepare();
         for bin in find_bins(shell) {
             let output = invoke_shell(&bin, &script).unwrap();
@@ -119,6 +120,23 @@ mod bash_impl {
         Bash::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
         let script = OsString::from_vec(script);
         (resources::UTF8_SAMPLE.into(), script)
+    }
+
+    #[test_matrix(("bash", "zsh"))]
+    fn test_roundtrip_utf8_full(shell: &str) {
+        let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
+        for bin in find_bins(shell) {
+            // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
+            for chunk in utf8.chunks(2usize.pow(14)) {
+                let input: String = String::from_iter(chunk);
+                let mut script = b"printf %s ".to_vec();
+                Bash::quote_into_vec(&input, &mut script);
+                let script = OsString::from_vec(script);
+                let output = invoke_shell(&bin, &script).unwrap();
+                let observed = OsString::from_vec(output.stdout);
+                assert_eq!(observed.into_string(), Ok(input));
+            }
+        }
     }
 }
 

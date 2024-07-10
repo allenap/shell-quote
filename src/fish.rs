@@ -272,7 +272,7 @@ mod text {
                 Delete => push_literal(Outside, b"\\X7F"),
                 PrintableInert(ch) => push_literal(Whatever, &ch.to_le_bytes()),
                 Printable(ch) => push_literal(Inside, &ch.to_le_bytes()),
-                Utf8(char) => push_literal(Whatever, char.encode_utf8(buf).as_bytes()),
+                Utf8(char) => push_literal(Inside, char.encode_utf8(buf).as_bytes()),
             }
         }
         if inside_quotes_now {

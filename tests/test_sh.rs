@@ -1,4 +1,4 @@
-#![cfg(feature = "sh")]
+#![cfg(all(unix, feature = "sh"))]
 
 mod resources;
 mod util;
@@ -104,7 +104,8 @@ mod sh_impl {
     }
 
     #[test_matrix(
-        (script_bytes, script_text),
+        (script_bytes,
+         script_text),
         (("sh", invoke_shell),
          ("dash", invoke_shell),
          ("bash", invoke_shell),
@@ -150,6 +151,30 @@ mod sh_impl {
         let input: OsString = resources::UTF8_SAMPLE.into();
         let script = OsString::from_vec(script);
         (input, script)
+    }
+
+    #[test_matrix(
+        (("sh", invoke_shell),
+         ("dash", invoke_shell),
+         ("bash", invoke_shell),
+         ("bash", invoke_bash_as_sh),
+         ("zsh", invoke_shell),
+         ("zsh", invoke_zsh_as_sh))
+    )]
+    fn test_roundtrip_utf8_full((shell, invoke): (&str, fn(&Path, &OsStr) -> Result<Output>)) {
+        let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
+        for bin in find_bins(shell) {
+            // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
+            for chunk in utf8.chunks(2usize.pow(14)) {
+                let input: String = String::from_iter(chunk);
+                let mut script = b"printf %s ".to_vec();
+                Sh::quote_into_vec(&input, &mut script);
+                let script = OsString::from_vec(script);
+                let output = invoke(&bin, &script).unwrap();
+                let observed = OsString::from_vec(output.stdout);
+                assert_eq!(observed.into_string(), Ok(input));
+            }
+        }
     }
 }
 
