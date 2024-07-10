@@ -1,15 +1,19 @@
 #![cfg(feature = "bash")]
 
+mod resources;
 mod util;
 
 // -- impl Bash ---------------------------------------------------------------
 
 mod bash_impl {
     use std::ffi::OsString;
-    use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
-    use super::util::{find_bins, invoke_shell};
+    use super::{
+        resources,
+        util::{find_bins, invoke_shell},
+    };
     use shell_quote::Bash;
+    use test_case::test_matrix;
 
     #[test]
     fn test_lowercase_ascii() {
@@ -57,6 +61,12 @@ mod bash_impl {
     }
 
     #[test]
+    fn test_utf8() {
+        // UTF-8 for code points U+0080 and above is included verbatim.
+        assert_eq!(Bash::quote_vec("Hello 👋"), b"$'Hello \xf0\x9f\x91\x8b'");
+    }
+
+    #[test]
     fn test_escape_into_plain() {
         let mut buffer = Vec::new();
         Bash::quote_into_vec("hello", &mut buffer);
@@ -70,7 +80,24 @@ mod bash_impl {
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
-    fn script() -> (OsString, OsString) {
+    #[cfg(unix)]
+    #[test_matrix(
+        (script_bytes, script_text),
+        ("bash", "zsh")
+    )]
+    fn test_roundtrip(prepare: fn() -> (OsString, OsString), shell: &str) {
+        use std::os::unix::ffi::OsStringExt;
+        let (input, script) = prepare();
+        for bin in find_bins(shell) {
+            let output = invoke_shell(&bin, &script).unwrap();
+            let result = OsString::from_vec(output.stdout);
+            assert_eq!(result, input);
+        }
+    }
+
+    #[cfg(unix)]
+    fn script_bytes() -> (OsString, OsString) {
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
         let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
@@ -85,23 +112,36 @@ mod bash_impl {
         (input, script)
     }
 
-    #[test]
-    fn test_roundtrip_bash() {
-        let (input, script) = script();
-        for bin in find_bins("bash") {
-            let output = invoke_shell(&bin, &script).unwrap();
-            let result = OsString::from_vec(output.stdout);
-            assert_eq!(result, input);
-        }
+    #[cfg(unix)]
+    fn script_text() -> (OsString, OsString) {
+        use std::os::unix::ffi::OsStringExt;
+        // NOTE: Do NOT use `echo` here; in most/all shells it interprets
+        // escapes with no way to disable that behaviour (unlike the `echo`
+        // builtin in Bash, for example, which accepts a `-E` flag). Using
+        // `printf %s` seems to do the right thing in most shells, i.e. it does
+        // not interpret the arguments in any way.
+        let mut script = b"printf %s ".to_vec();
+        Bash::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
+        let script = OsString::from_vec(script);
+        (resources::UTF8_SAMPLE.into(), script)
     }
 
-    #[test]
-    fn test_roundtrip_zsh() {
-        let (input, script) = script();
-        for bin in find_bins("zsh") {
-            let output = invoke_shell(&bin, &script).unwrap();
-            let result = OsString::from_vec(output.stdout);
-            assert_eq!(result, input);
+    #[cfg(unix)]
+    #[test_matrix(("bash", "zsh"))]
+    fn test_roundtrip_utf8_full(shell: &str) {
+        use std::os::unix::ffi::OsStringExt;
+        let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
+        for bin in find_bins(shell) {
+            // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
+            for chunk in utf8.chunks(2usize.pow(14)) {
+                let input: String = String::from_iter(chunk);
+                let mut script = b"printf %s ".to_vec();
+                Bash::quote_into_vec(&input, &mut script);
+                let script = OsString::from_vec(script);
+                let output = invoke_shell(&bin, &script).unwrap();
+                let observed = OsString::from_vec(output.stdout);
+                assert_eq!(observed.into_string(), Ok(input));
+            }
         }
     }
 }

@@ -15,6 +15,7 @@ mod ascii;
 mod bash;
 mod fish;
 mod sh;
+mod utf8;
 mod util;
 
 #[cfg(feature = "bash")]
@@ -105,41 +106,46 @@ where
 /// [`AsRef<[u8]>`][`AsRef`] instead? The ergonomics of that approach were not
 /// so good. For example, quoting [`OsString`]/[`OsStr`] and
 /// [`PathBuf`]/[`Path`] didn't work in a natural way.
-pub struct Quotable<'a> {
+pub enum Quotable<'a> {
     #[cfg_attr(
         not(any(feature = "bash", feature = "fish", feature = "sh")),
         allow(unused)
     )]
-    pub(crate) bytes: &'a [u8],
+    Bytes(&'a [u8]),
+    #[cfg_attr(
+        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        allow(unused)
+    )]
+    Text(&'a str),
 }
 
 impl<'a> From<&'a [u8]> for Quotable<'a> {
     fn from(source: &'a [u8]) -> Quotable<'a> {
-        Quotable { bytes: source }
+        Quotable::Bytes(source)
     }
 }
 
 impl<'a, const N: usize> From<&'a [u8; N]> for Quotable<'a> {
     fn from(source: &'a [u8; N]) -> Quotable<'a> {
-        Quotable { bytes: &source[..] }
+        Quotable::Bytes(&source[..])
     }
 }
 
 impl<'a> From<&'a Vec<u8>> for Quotable<'a> {
     fn from(source: &'a Vec<u8>) -> Quotable<'a> {
-        Quotable { bytes: source }
+        Quotable::Bytes(source)
     }
 }
 
 impl<'a> From<&'a str> for Quotable<'a> {
     fn from(source: &'a str) -> Quotable<'a> {
-        source.as_bytes().into()
+        Quotable::Text(source)
     }
 }
 
 impl<'a> From<&'a String> for Quotable<'a> {
     fn from(source: &'a String) -> Quotable<'a> {
-        source.as_bytes().into()
+        Quotable::Text(source)
     }
 }
 

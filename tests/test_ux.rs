@@ -1,4 +1,4 @@
-#![cfg(all(feature = "bash", feature = "bstr"))]
+#![cfg(all(unix, feature = "bash", feature = "bstr"))]
 
 use bstr::{BString, ByteSlice};
 use std::{ffi::OsString, os::unix::ffi::OsStringExt};

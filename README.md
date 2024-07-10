@@ -78,6 +78,53 @@ script.push_quoted(Bash, "/path/(to)/[output]");
 assert_eq!(script, "echo $'foo bar' > $'/path/(to)/[output]'");
 ```
 
+## Notes on string encoding
+
+<div class="warning">
+
+Here we will use [`Bash`] for the example, but other shells may have similar _or
+different_ behaviours; check their documentation.
+
+</div>
+
+When we use [`&str`] or [`String`] as an input type, UTF-8 code points of U+0080
+and above are written into the quoted form just as they are encoded in UTF-8,
+i.e. the bytes are the same and there are no escape sequences. Compare this to
+using a different input type:
+
+```rust
+# use shell_quote::{Bash, QuoteRefExt};
+let data: &str = "café";
+let data_utf8_quoted_from_string_type: Vec<u8> = data.quoted(Bash);
+assert_eq!(&data_utf8_quoted_from_string_type, b"$'caf\xC3\xA9'"); // UTF-8, verbatim.
+let data_utf8_quoted_from_bytes: Vec<u8> = data.as_bytes().quoted(Bash);
+assert_eq!(&data_utf8_quoted_from_bytes, b"$'caf\\xC3\\xA9'"); // Now hex escaped!
+```
+
+It follows then, supposing you need to use a text encoding that is not UTF-8,
+that string types must be encoded _before_ passing to the functions from this
+crate.
+
+For example, the character 'é' (U+00E9):
+
+- In ISO-8859-1, it is represented by the single byte `0xE9`.
+- In UTF-8, it is represented by the two bytes `0xC3 0xA9`.
+
+Using a hypothetical `encode_iso_8859_1` function:
+
+```rust
+# use shell_quote::{Bash, QuoteRefExt};
+# fn encode_iso_8859_1(_s: &str) -> &[u8] {
+#     &[99, 97, 102, 233]
+# }
+let data = "café";
+let data_utf8_quoted: Vec<u8> = data.quoted(Bash);
+assert_eq!(&data_utf8_quoted, b"$'caf\xC3\xA9'"); // UTF-8: 2 bytes for é.
+let data_iso_8859_1: &[u8] = encode_iso_8859_1(data);
+let data_iso_8859_1_quoted: Vec<u8> = data_iso_8859_1.quoted(Bash);
+assert_eq!(&data_iso_8859_1_quoted, b"$'caf\\xE9'"); // ISO-8859-1: 1 byte, hex escaped.
+```
+
 ## Compatibility
 
 [`Sh`] can serve as a lowest common denominator for Bash, Z Shell, and
