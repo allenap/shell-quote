@@ -94,7 +94,7 @@ impl Fish {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
                 bytes::Prepared::Escape(esc) => {
-                    let mut sout = Vec::with_capacity(esc.len() + 2);
+                    let mut sout = Vec::new();
                     bytes::escape_chars(esc, &mut sout); // Do the work.
                     sout
                 }
@@ -103,7 +103,7 @@ impl Fish {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
                 text::Prepared::Escape(esc) => {
-                    let mut sout = Vec::with_capacity(esc.len() + 2);
+                    let mut sout = Vec::new();
                     text::escape_chars(esc, &mut sout); // Do the work.
                     sout
                 }
