@@ -144,14 +144,12 @@ impl Sh {
             Prepared::Empty => vec![b'\'', b'\''],
             Prepared::Inert => bytes.into(),
             Prepared::Escape(esc) => {
-                // This may be a pointless optimisation, but calculate the
-                // memory needed to avoid reallocations as we construct the
-                // output.
-                let size = escape_size(&esc);
-                let mut sout = Vec::with_capacity(size);
-                let capacity = sout.capacity();
+                // Previously an optimisation here precalculated the required
+                // capacity of the output `Vec` to avoid reallocations later on,
+                // but benchmarks showed that it was slower. It _may_ have
+                // lowered maximum RAM required, but that was not measured.
+                let mut sout = Vec::new();
                 escape_chars(esc, &mut sout); // Do the work.
-                debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                 sout
             }
         }
@@ -181,14 +179,11 @@ impl Sh {
             Prepared::Empty => sout.extend(b"''"),
             Prepared::Inert => sout.extend(bytes),
             Prepared::Escape(esc) => {
-                // This may be a pointless optimisation, but calculate the
-                // memory needed to avoid reallocations as we construct the
-                // output.
-                let size = escape_size(&esc);
-                sout.reserve(size);
-                let capacity = sout.capacity();
+                // Previously an optimisation here precalculated the required
+                // capacity of the output `Vec` to avoid reallocations later on,
+                // but benchmarks showed that it was slower. It _may_ have
+                // lowered maximum RAM required, but that was not measured.
                 escape_chars(esc, sout); // Do the work.
-                debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
             }
         }
     }
@@ -251,40 +246,5 @@ fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
     }
     if inside_quotes {
         sout.push(b'\'');
-    }
-}
-
-pub fn escape_size(chars: &[Char]) -> usize {
-    use Char::*;
-    let (inside_quotes, size) = chars
-        .iter()
-        .fold((false, 0usize), |(inside_quotes, size), ch| match ch {
-            PrintableInert(_) | Extended(_) => (inside_quotes, size + 1),
-            Control(_) | Printable(_) => {
-                if inside_quotes {
-                    (true, size + 1)
-                } else {
-                    (true, size + 2)
-                }
-            }
-            SingleQuote => {
-                if inside_quotes {
-                    (false, size + 3)
-                } else {
-                    (false, size + 2)
-                }
-            }
-            _ => {
-                if inside_quotes {
-                    (true, size + 1)
-                } else {
-                    (true, size + 2)
-                }
-            }
-        });
-    if inside_quotes {
-        size + 1
-    } else {
-        size
     }
 }
