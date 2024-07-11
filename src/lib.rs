@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 mod ascii;
 mod bash;
+mod chain;
 mod fish;
 mod sh;
 mod utf8;

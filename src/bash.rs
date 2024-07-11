@@ -127,30 +127,12 @@ impl Bash {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
-                bytes::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
-                    let mut sout = Vec::new();
-                    bytes::escape_chars(esc, &mut sout); // Do the work.
-                    sout
-                }
+                bytes::Prepared::Escape(esc) => bytes::escape_chars(esc).to_vec(),
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
-                text::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
-                    let mut sout = Vec::new();
-                    text::escape_chars(esc, &mut sout); // Do the work.
-                    sout
-                }
+                text::Prepared::Escape(esc) => text::escape_chars(esc).to_vec(),
             },
         }
     }
@@ -175,26 +157,12 @@ impl Bash {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
-                bytes::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
-                    bytes::escape_chars(esc, sout); // Do the work.
-                }
+                bytes::Prepared::Escape(esc) => bytes::escape_chars(esc).write_to(sout),
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
-                text::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
-                    text::escape_chars(esc, sout); // Do the work.
-                }
+                text::Prepared::Escape(esc) => text::escape_chars(esc).write_to(sout),
             },
         }
     }
@@ -203,7 +171,7 @@ impl Bash {
 // ----------------------------------------------------------------------------
 
 mod bytes {
-    use crate::{ascii::Char, util::u8_to_hex_escape};
+    use crate::{ascii::Char, chain::Chain, util::u8_to_hex_escape};
 
     pub enum Prepared {
         Empty,
@@ -224,38 +192,38 @@ mod bytes {
         }
     }
 
-    pub fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-        // Push a Bash-style $'...' quoted string into `sout`.
-        sout.extend(b"$'");
+    pub fn escape_chars(esc: Vec<Char>) -> Chain {
+        // Push a Bash-style $'...' quoted string into `chain`.
+        let mut chain = Chain::default().extend(b"$'");
         for mode in esc {
             use Char::*;
-            match mode {
-                Bell => sout.extend(b"\\a"),
-                Backspace => sout.extend(b"\\b"),
-                Escape => sout.extend(b"\\e"),
-                FormFeed => sout.extend(b"\\f"),
-                NewLine => sout.extend(b"\\n"),
-                CarriageReturn => sout.extend(b"\\r"),
-                HorizontalTab => sout.extend(b"\\t"),
-                VerticalTab => sout.extend(b"\\v"),
-                Control(ch) => sout.extend(&u8_to_hex_escape(ch)),
-                Backslash => sout.extend(b"\\\\"),
-                SingleQuote => sout.extend(b"\\'"),
-                DoubleQuote => sout.extend(b"\""),
-                Delete => sout.extend(b"\\x7F"),
-                PrintableInert(ch) => sout.push(ch),
-                Printable(ch) => sout.push(ch),
-                Extended(ch) => sout.extend(&u8_to_hex_escape(ch)),
+            chain = match mode {
+                Bell => chain.extend(b"\\a"),
+                Backspace => chain.extend(b"\\b"),
+                Escape => chain.extend(b"\\e"),
+                FormFeed => chain.extend(b"\\f"),
+                NewLine => chain.extend(b"\\n"),
+                CarriageReturn => chain.extend(b"\\r"),
+                HorizontalTab => chain.extend(b"\\t"),
+                VerticalTab => chain.extend(b"\\v"),
+                Control(ch) => chain.extend(&u8_to_hex_escape(ch)),
+                Backslash => chain.extend(b"\\\\"),
+                SingleQuote => chain.extend(b"\\'"),
+                DoubleQuote => chain.extend(b"\""),
+                Delete => chain.extend(b"\\x7F"),
+                PrintableInert(ch) => chain.push(ch),
+                Printable(ch) => chain.push(ch),
+                Extended(ch) => chain.extend(&u8_to_hex_escape(ch)),
             }
         }
-        sout.push(b'\'');
+        chain.push(b'\'')
     }
 }
 
 // ----------------------------------------------------------------------------
 
 mod text {
-    use crate::{utf8::Char, util::u8_to_hex_escape};
+    use crate::{chain::Chain, utf8::Char, util::u8_to_hex_escape};
 
     pub enum Prepared {
         Empty,
@@ -276,31 +244,31 @@ mod text {
         }
     }
 
-    pub fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-        // Push a Bash-style $'...' quoted string into `sout`.
-        sout.extend(b"$'");
+    pub fn escape_chars(esc: Vec<Char>) -> Chain {
+        // Push a Bash-style $'...' quoted string into `chain`.
+        let mut chain = Chain::default().extend(b"$'");
         let buf = &mut [0u8; 4];
         for mode in esc {
             use Char::*;
-            match mode {
-                Bell => sout.extend(b"\\a"),
-                Backspace => sout.extend(b"\\b"),
-                Escape => sout.extend(b"\\e"),
-                FormFeed => sout.extend(b"\\f"),
-                NewLine => sout.extend(b"\\n"),
-                CarriageReturn => sout.extend(b"\\r"),
-                HorizontalTab => sout.extend(b"\\t"),
-                VerticalTab => sout.extend(b"\\v"),
-                Control(ch) => sout.extend(&u8_to_hex_escape(ch)),
-                Backslash => sout.extend(b"\\\\"),
-                SingleQuote => sout.extend(b"\\'"),
-                DoubleQuote => sout.extend(b"\""),
-                Delete => sout.extend(b"\\x7F"),
-                PrintableInert(ch) => sout.push(ch),
-                Printable(ch) => sout.push(ch),
-                Utf8(ch) => sout.extend(ch.encode_utf8(buf).as_bytes()),
+            chain = match mode {
+                Bell => chain.extend(b"\\a"),
+                Backspace => chain.extend(b"\\b"),
+                Escape => chain.extend(b"\\e"),
+                FormFeed => chain.extend(b"\\f"),
+                NewLine => chain.extend(b"\\n"),
+                CarriageReturn => chain.extend(b"\\r"),
+                HorizontalTab => chain.extend(b"\\t"),
+                VerticalTab => chain.extend(b"\\v"),
+                Control(ch) => chain.extend(&u8_to_hex_escape(ch)),
+                Backslash => chain.extend(b"\\\\"),
+                SingleQuote => chain.extend(b"\\'"),
+                DoubleQuote => chain.extend(b"\""),
+                Delete => chain.extend(b"\\x7F"),
+                PrintableInert(ch) => chain.push(ch),
+                Printable(ch) => chain.push(ch),
+                Utf8(ch) => chain.extend(ch.encode_utf8(buf).as_bytes()),
             }
         }
-        sout.push(b'\'');
+        chain.push(b'\'')
     }
 }
