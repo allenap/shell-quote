@@ -78,8 +78,8 @@ impl Fish {
     /// - The string as-is, if no escaping is necessary.
     /// - An escaped string, like `'foo \'bar'`, `\a'ABC'`
     ///
-    /// See [`quote_into`](#method.quote_into) for a variant that extends an
-    /// existing `Vec` instead of allocating a new one.
+    /// See [`quote_into_vec`][`Self::quote_into_vec`] for a variant that
+    /// extends an existing `Vec` instead of allocating a new one.
     ///
     /// # Examples
     ///
@@ -113,7 +113,7 @@ impl Fish {
 
     /// Quote a string of bytes into an existing `Vec<u8>`.
     ///
-    /// See [`quote`](#method.quote) for more details.
+    /// See [`quote_vec`][`Self::quote_vec`] for more details.
     ///
     /// # Examples
     ///
