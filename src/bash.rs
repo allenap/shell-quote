@@ -124,6 +124,7 @@ impl Bash {
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         match s.into() {
+            Quotable::Byte(byte) => Self::quote_vec(&[byte]),
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
@@ -137,6 +138,7 @@ impl Bash {
                     sout
                 }
             },
+            Quotable::Char(ch) => Self::quote_vec(&ch.to_string()),
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
@@ -170,6 +172,7 @@ impl Bash {
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         match s.into() {
+            Quotable::Byte(byte) => Self::quote_into_vec(&[byte], sout),
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
@@ -184,6 +187,7 @@ impl Bash {
                     debug_assert_eq!(cap, sout.capacity()); // No reallocations.
                 }
             },
+            Quotable::Char(ch) => Self::quote_into_vec(&ch.to_string(), sout),
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),

@@ -111,12 +111,34 @@ pub enum Quotable<'a> {
         not(any(feature = "bash", feature = "fish", feature = "sh")),
         allow(unused)
     )]
+    Byte(u8),
+    #[cfg_attr(
+        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        allow(unused)
+    )]
     Bytes(&'a [u8]),
     #[cfg_attr(
         not(any(feature = "bash", feature = "fish", feature = "sh")),
         allow(unused)
     )]
+    Char(char),
+    #[cfg_attr(
+        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        allow(unused)
+    )]
     Text(&'a str),
+}
+
+impl From<u8> for Quotable<'static> {
+    fn from(source: u8) -> Quotable<'static> {
+        Quotable::Byte(source)
+    }
+}
+
+impl From<char> for Quotable<'static> {
+    fn from(source: char) -> Quotable<'static> {
+        Quotable::Char(source)
+    }
 }
 
 impl<'a> From<&'a [u8]> for Quotable<'a> {
