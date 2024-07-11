@@ -120,6 +120,18 @@ pub enum Quotable<'a> {
     Text(Cow<'a, str>),
 }
 
+impl From<u8> for Quotable<'static> {
+    fn from(source: u8) -> Quotable<'static> {
+        Quotable::Bytes(Cow::Owned(vec![source]))
+    }
+}
+
+impl From<char> for Quotable<'static> {
+    fn from(source: char) -> Quotable<'static> {
+        Quotable::Text(Cow::Owned(source.to_string()))
+    }
+}
+
 impl<'a> From<&'a [u8]> for Quotable<'a> {
     fn from(source: &'a [u8]) -> Quotable<'a> {
         Quotable::Bytes(Cow::Borrowed(source))
