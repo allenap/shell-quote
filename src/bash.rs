@@ -128,14 +128,13 @@ impl Bash {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
                 bytes::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size = esc.iter().map(bytes::escape_size).sum::<usize>() + 3;
-                    let mut sout = Vec::with_capacity(size);
-                    let capacity = sout.capacity();
+                    // Previously an optimisation here precalculated the
+                    // required capacity of the output `Vec` to avoid
+                    // reallocations later on, but benchmarks showed that it was
+                    // slower. It _may_ have lowered maximum RAM required, but
+                    // that was not measured.
+                    let mut sout = Vec::new();
                     bytes::escape_chars(esc, &mut sout); // Do the work.
-                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                     sout
                 }
             },
@@ -143,14 +142,13 @@ impl Bash {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
                 text::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size = esc.iter().map(text::escape_size).sum::<usize>() + 3;
-                    let mut sout = Vec::with_capacity(size);
-                    let capacity = sout.capacity();
+                    // Previously an optimisation here precalculated the
+                    // required capacity of the output `Vec` to avoid
+                    // reallocations later on, but benchmarks showed that it was
+                    // slower. It _may_ have lowered maximum RAM required, but
+                    // that was not measured.
+                    let mut sout = Vec::new();
                     text::escape_chars(esc, &mut sout); // Do the work.
-                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                     sout
                 }
             },
@@ -178,28 +176,24 @@ impl Bash {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
                 bytes::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size = esc.iter().map(bytes::escape_size).sum::<usize>() + 3;
-                    sout.reserve(size);
-                    let capacity = sout.capacity();
+                    // Previously an optimisation here precalculated the
+                    // required capacity of the output `Vec` to avoid
+                    // reallocations later on, but benchmarks showed that it was
+                    // slower. It _may_ have lowered maximum RAM required, but
+                    // that was not measured.
                     bytes::escape_chars(esc, sout); // Do the work.
-                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                 }
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
                 text::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size = esc.iter().map(text::escape_size).sum::<usize>() + 3;
-                    sout.reserve(size);
-                    let capacity = sout.capacity();
+                    // Previously an optimisation here precalculated the
+                    // required capacity of the output `Vec` to avoid
+                    // reallocations later on, but benchmarks showed that it was
+                    // slower. It _may_ have lowered maximum RAM required, but
+                    // that was not measured.
                     text::escape_chars(esc, sout); // Do the work.
-                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                 }
             },
         }
@@ -256,28 +250,6 @@ mod bytes {
         }
         sout.push(b'\'');
     }
-
-    pub fn escape_size(char: &Char) -> usize {
-        use Char::*;
-        match char {
-            Bell => 2,
-            Backspace => 2,
-            Escape => 2,
-            FormFeed => 2,
-            NewLine => 2,
-            CarriageReturn => 2,
-            HorizontalTab => 2,
-            VerticalTab => 2,
-            Control(_) => 4,
-            Backslash => 2,
-            SingleQuote => 2,
-            DoubleQuote => 1,
-            Delete => 4,
-            PrintableInert(_) => 1,
-            Printable(_) => 1,
-            Extended(_) => 4,
-        }
-    }
 }
 
 // ----------------------------------------------------------------------------
@@ -330,27 +302,5 @@ mod text {
             }
         }
         sout.push(b'\'');
-    }
-
-    pub fn escape_size(ch: &Char) -> usize {
-        use Char::*;
-        match ch {
-            Bell => 2,
-            Backspace => 2,
-            Escape => 2,
-            FormFeed => 2,
-            NewLine => 2,
-            CarriageReturn => 2,
-            HorizontalTab => 2,
-            VerticalTab => 2,
-            Control(_) => 4,
-            Backslash => 2,
-            SingleQuote => 2,
-            DoubleQuote => 1,
-            Delete => 4,
-            PrintableInert(_) => 1,
-            Printable(_) => 1,
-            Utf8(ch) => ch.len_utf8(),
-        }
     }
 }
