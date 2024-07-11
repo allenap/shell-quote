@@ -72,6 +72,7 @@ mod fish_impl {
     #[test]
     fn test_punctuation() {
         assert_eq!(Fish::quote_vec("-_=/,.+"), b"-_'=/,.+'");
+        assert_eq!(Fish::quote_vec("Hello \r\n"), b"Hello' '\\r\\n");
     }
 
     #[test]

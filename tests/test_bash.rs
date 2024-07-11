@@ -39,6 +39,7 @@ mod bash_impl {
     #[test]
     fn test_punctuation() {
         assert_eq!(Bash::quote_vec("-_=/,.+"), b"$'-_=/,.+'");
+        assert_eq!(Bash::quote_vec("Hello \r\n"), b"$'Hello \\r\\n'");
     }
 
     #[test]
