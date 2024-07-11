@@ -131,9 +131,11 @@ impl Bash {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
                     // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(bytes::escape_size).sum();
-                    let mut sout = Vec::with_capacity(size + 3);
+                    let size = esc.iter().map(bytes::escape_size).sum::<usize>() + 3;
+                    let mut sout = Vec::with_capacity(size);
+                    let capacity = sout.capacity();
                     bytes::escape_chars(esc, &mut sout); // Do the work.
+                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                     sout
                 }
             },
@@ -144,9 +146,11 @@ impl Bash {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
                     // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(text::escape_size).sum();
-                    let mut sout = Vec::with_capacity(size + 3);
+                    let size = esc.iter().map(text::escape_size).sum::<usize>() + 3;
+                    let mut sout = Vec::with_capacity(size);
+                    let capacity = sout.capacity();
                     text::escape_chars(esc, &mut sout); // Do the work.
+                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                     sout
                 }
             },
@@ -177,11 +181,11 @@ impl Bash {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
                     // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(bytes::escape_size).sum();
-                    sout.reserve(size + 3);
-                    let cap = sout.capacity();
+                    let size = esc.iter().map(bytes::escape_size).sum::<usize>() + 3;
+                    sout.reserve(size);
+                    let capacity = sout.capacity();
                     bytes::escape_chars(esc, sout); // Do the work.
-                    debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                 }
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
@@ -191,11 +195,11 @@ impl Bash {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
                     // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(text::escape_size).sum();
-                    sout.reserve(size + 3);
-                    let cap = sout.capacity();
+                    let size = esc.iter().map(text::escape_size).sum::<usize>() + 3;
+                    sout.reserve(size);
+                    let capacity = sout.capacity();
                     text::escape_chars(esc, sout); // Do the work.
-                    debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                    debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                 }
             },
         }
