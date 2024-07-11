@@ -8,6 +8,7 @@
     doc = include_str!("../README.md")
 )]
 
+use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
@@ -111,41 +112,53 @@ pub enum Quotable<'a> {
         not(any(feature = "bash", feature = "fish", feature = "sh")),
         allow(unused)
     )]
-    Bytes(&'a [u8]),
+    Bytes(Cow<'a, [u8]>),
     #[cfg_attr(
         not(any(feature = "bash", feature = "fish", feature = "sh")),
         allow(unused)
     )]
-    Text(&'a str),
+    Text(Cow<'a, str>),
+}
+
+impl From<u8> for Quotable<'static> {
+    fn from(source: u8) -> Quotable<'static> {
+        Quotable::Bytes(Cow::Owned(vec![source]))
+    }
+}
+
+impl From<char> for Quotable<'static> {
+    fn from(source: char) -> Quotable<'static> {
+        Quotable::Text(Cow::Owned(source.to_string()))
+    }
 }
 
 impl<'a> From<&'a [u8]> for Quotable<'a> {
     fn from(source: &'a [u8]) -> Quotable<'a> {
-        Quotable::Bytes(source)
+        Quotable::Bytes(Cow::Borrowed(source))
     }
 }
 
 impl<'a, const N: usize> From<&'a [u8; N]> for Quotable<'a> {
     fn from(source: &'a [u8; N]) -> Quotable<'a> {
-        Quotable::Bytes(&source[..])
+        Quotable::Bytes(Cow::Borrowed(&source[..]))
     }
 }
 
 impl<'a> From<&'a Vec<u8>> for Quotable<'a> {
     fn from(source: &'a Vec<u8>) -> Quotable<'a> {
-        Quotable::Bytes(source)
+        Quotable::Bytes(Cow::Borrowed(source))
     }
 }
 
 impl<'a> From<&'a str> for Quotable<'a> {
     fn from(source: &'a str) -> Quotable<'a> {
-        Quotable::Text(source)
+        Quotable::Text(Cow::Borrowed(source))
     }
 }
 
 impl<'a> From<&'a String> for Quotable<'a> {
     fn from(source: &'a String) -> Quotable<'a> {
-        Quotable::Text(source)
+        Quotable::Text(Cow::Borrowed(source))
     }
 }
 

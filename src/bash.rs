@@ -124,9 +124,9 @@ impl Bash {
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         match s.into() {
-            Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
+            Quotable::Bytes(ref bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
-                bytes::Prepared::Inert => bytes.into(),
+                bytes::Prepared::Inert => bytes.clone().into_owned(),
                 bytes::Prepared::Escape(esc) => {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
@@ -137,9 +137,9 @@ impl Bash {
                     sout
                 }
             },
-            Quotable::Text(text) => match text::escape_prepare(text) {
+            Quotable::Text(ref text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => vec![b'\'', b'\''],
-                text::Prepared::Inert => text.into(),
+                text::Prepared::Inert => text.as_bytes().into(),
                 text::Prepared::Escape(esc) => {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
@@ -170,9 +170,9 @@ impl Bash {
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         match s.into() {
-            Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
+            Quotable::Bytes(ref bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
-                bytes::Prepared::Inert => sout.extend(bytes),
+                bytes::Prepared::Inert => sout.extend(bytes.as_ref()),
                 bytes::Prepared::Escape(esc) => {
                     // This may be a pointless optimisation, but calculate the
                     // memory needed to avoid reallocations as we construct the
@@ -184,7 +184,7 @@ impl Bash {
                     debug_assert_eq!(cap, sout.capacity()); // No reallocations.
                 }
             },
-            Quotable::Text(text) => match text::escape_prepare(text) {
+            Quotable::Text(ref text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
                 text::Prepared::Escape(esc) => {
