@@ -136,13 +136,21 @@ impl Sh {
     /// ```
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        let bytes = match s.into() {
-            Quotable::Bytes(bytes) => bytes,
-            Quotable::Text(s) => s.as_bytes(),
+        let quotable = s.into();
+        let prepared = match quotable {
+            Quotable::Byte(byte) => escape_prepare(&[byte]),
+            Quotable::Bytes(bytes) => escape_prepare(bytes),
+            Quotable::Char(ch) => escape_prepare(ch.to_string().as_bytes()),
+            Quotable::Text(s) => escape_prepare(s.as_bytes()),
         };
-        match escape_prepare(bytes) {
+        match prepared {
             Prepared::Empty => vec![b'\'', b'\''],
-            Prepared::Inert => bytes.into(),
+            Prepared::Inert => match quotable {
+                Quotable::Byte(byte) => vec![byte],
+                Quotable::Bytes(bytes) => bytes.to_owned(),
+                Quotable::Char(ch) => ch.to_string().into(),
+                Quotable::Text(s) => s.as_bytes().into(),
+            },
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
@@ -180,13 +188,21 @@ impl Sh {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        let bytes = match s.into() {
-            Quotable::Bytes(bytes) => bytes,
-            Quotable::Text(s) => s.as_bytes(),
+        let quotable = s.into();
+        let prepared = match quotable {
+            Quotable::Byte(byte) => escape_prepare(&[byte]),
+            Quotable::Bytes(bytes) => escape_prepare(bytes),
+            Quotable::Char(ch) => escape_prepare(ch.to_string().as_bytes()),
+            Quotable::Text(s) => escape_prepare(s.as_bytes()),
         };
-        match escape_prepare(bytes) {
+        match prepared {
             Prepared::Empty => sout.extend(b"''"),
-            Prepared::Inert => sout.extend(bytes),
+            Prepared::Inert => match quotable {
+                Quotable::Byte(byte) => sout.push(byte),
+                Quotable::Bytes(bytes) => sout.extend(bytes),
+                Quotable::Char(ch) => sout.extend(ch.to_string().as_bytes()),
+                Quotable::Text(s) => sout.extend(s.as_bytes()),
+            },
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
