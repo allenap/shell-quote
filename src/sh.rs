@@ -136,9 +136,10 @@ impl Sh {
     /// ```
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
-        let bytes = match s.into() {
-            Quotable::Bytes(bytes) => bytes,
-            Quotable::Text(s) => s.as_bytes(),
+        let quotable = s.into();
+        let bytes = match quotable {
+            Quotable::Bytes(ref bytes) => bytes.as_ref(),
+            Quotable::Text(ref text) => text.as_bytes(),
         };
         match escape_prepare(bytes) {
             Prepared::Empty => vec![b'\'', b'\''],
@@ -180,9 +181,10 @@ impl Sh {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
-        let bytes = match s.into() {
-            Quotable::Bytes(bytes) => bytes,
-            Quotable::Text(s) => s.as_bytes(),
+        let quotable = s.into();
+        let bytes = match quotable {
+            Quotable::Bytes(ref bytes) => bytes.as_ref(),
+            Quotable::Text(ref text) => text.as_bytes(),
         };
         match escape_prepare(bytes) {
             Prepared::Empty => sout.extend(b"''"),
