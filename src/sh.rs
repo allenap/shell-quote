@@ -146,19 +146,12 @@ impl Sh {
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
-                // output. Since we'll generate a '…' string, add 2 bytes. Each
-                // single quote can consume an extra 1 to 3 bytes, so we assume
-                // the worse.
-                let quotes: usize = esc
-                    .iter()
-                    .filter(|char| **char == Char::SingleQuote)
-                    .count();
-
-                let size: usize = esc.len() + 2 + (quotes * 3);
+                // output.
+                let size = escape_size(&esc);
                 let mut sout = Vec::with_capacity(size);
-                let cap = sout.capacity();
+                let capacity = sout.capacity();
                 escape_chars(esc, &mut sout); // Do the work.
-                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
                 sout
             }
         }
@@ -190,19 +183,12 @@ impl Sh {
             Prepared::Escape(esc) => {
                 // This may be a pointless optimisation, but calculate the
                 // memory needed to avoid reallocations as we construct the
-                // output. Since we'll generate a '…' string, add 2 bytes. Each
-                // single quote can consume an extra 1 to 3 bytes, so we assume
-                // the worse.
-                let quotes: usize = esc
-                    .iter()
-                    .filter(|char| **char == Char::SingleQuote)
-                    .count();
-
-                let size: usize = esc.len() + 2 + (quotes * 3);
+                // output.
+                let size = escape_size(&esc);
                 sout.reserve(size);
-                let cap = sout.capacity();
+                let capacity = sout.capacity();
                 escape_chars(esc, sout); // Do the work.
-                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                debug_assert_eq!(capacity, sout.capacity()); // No reallocations.
             }
         }
     }
@@ -230,40 +216,75 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    let mut inside_quotes_now = false;
+    let mut inside_quotes = false;
     for mode in esc {
         use Char::*;
         match mode {
             PrintableInert(ch) | Extended(ch) => sout.push(ch),
             Control(ch) | Printable(ch) => {
-                if inside_quotes_now {
+                if inside_quotes {
                     sout.push(ch);
                 } else {
                     sout.push(b'\'');
-                    inside_quotes_now = true;
+                    inside_quotes = true;
                     sout.push(ch);
                 }
             }
             SingleQuote => {
-                if inside_quotes_now {
+                if inside_quotes {
                     sout.extend(b"'\\'");
-                    inside_quotes_now = false;
+                    inside_quotes = false;
                 } else {
                     sout.extend(b"\\'");
                 }
             }
             ch => {
-                if inside_quotes_now {
+                if inside_quotes {
                     sout.push(ch.code());
                 } else {
                     sout.push(b'\'');
-                    inside_quotes_now = true;
+                    inside_quotes = true;
                     sout.push(ch.code());
                 }
             }
         }
     }
-    if inside_quotes_now {
+    if inside_quotes {
         sout.push(b'\'');
+    }
+}
+
+pub fn escape_size(chars: &[Char]) -> usize {
+    use Char::*;
+    let (inside_quotes, size) = chars
+        .iter()
+        .fold((false, 0usize), |(inside_quotes, size), ch| match ch {
+            PrintableInert(_) | Extended(_) => (inside_quotes, size + 1),
+            Control(_) | Printable(_) => {
+                if inside_quotes {
+                    (true, size + 1)
+                } else {
+                    (true, size + 2)
+                }
+            }
+            SingleQuote => {
+                if inside_quotes {
+                    (false, size + 3)
+                } else {
+                    (false, size + 2)
+                }
+            }
+            _ => {
+                if inside_quotes {
+                    (true, size + 1)
+                } else {
+                    (true, size + 2)
+                }
+            }
+        });
+    if inside_quotes {
+        size + 1
+    } else {
+        size
     }
 }
