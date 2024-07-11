@@ -67,6 +67,7 @@ mod sh_impl {
     #[test]
     fn test_punctuation() {
         assert_eq!(Sh::quote_vec("-_=/,.+"), b"-_'=/,.+'");
+        assert_eq!(Sh::quote_vec("Hello \r\n"), b"Hello' \r\n'");
     }
 
     #[test]
