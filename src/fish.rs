@@ -131,18 +131,12 @@ impl Fish {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
-                bytes::Prepared::Escape(esc) => {
-                    sout.reserve(esc.len() + 2);
-                    bytes::escape_chars(esc, sout); // Do the work.
-                }
+                bytes::Prepared::Escape(esc) => bytes::escape_chars(esc, sout),
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
-                text::Prepared::Escape(esc) => {
-                    sout.reserve(esc.len() + 2);
-                    text::escape_chars(esc, sout); // Do the work.
-                }
+                text::Prepared::Escape(esc) => text::escape_chars(esc, sout),
             },
         }
     }
