@@ -1,3 +1,31 @@
+//! <!-- Override references in README.md back to `cargo doc`-generated links. -->
+//!
+//! [`&str`]: `&str`
+//! [`String`]: `String`
+//! [`bstr::BStr`]: `bstr::BStr`
+//! [`bstr::BString`]: `bstr::BString`
+//! [`slice`]: `slice`
+//! [`Vec<u8>`]: `std::vec::Vec<u8>`
+//! [`OsStr`]: `std::ffi::OsStr`
+//! [`OsString`]: `std::ffi::OsString`
+//! [`Path`]: `std::path::Path`
+//! [`PathBuf`]: `std::path::PathBuf`
+//!
+//! [`Sh`]: `Sh`
+//! [`Dash`]: `Dash`
+//! [`Bash`]: `Bash`
+//! [`Fish`]: `Fish`
+//! [`Zsh`]: `Zsh`
+//!
+//! [`QuoteRefExt`]: `QuoteRefExt`
+//! [`QuoteRefExt::quoted`]: `QuoteRefExt::quoted`
+//! [`QuoteExt`]: `QuoteExt`
+//!
+//! <style>
+//!   .readme-only { display: none; }
+//! </style>
+//!
+
 #![cfg_attr(
     all(
         feature = "bstr",
