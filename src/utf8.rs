@@ -1,4 +1,4 @@
-#![cfg(any(feature = "bash", feature = "fish", feature = "sh"))]
+#![cfg(any(feature = "bash", feature = "fish"))]
 
 //! Scanner for control codes, shell metacharacters, printable characters, and
 //! UTF-8 sequences, i.e. classify each byte in a stream according to where it
