@@ -1,8 +1,38 @@
+<!--
+    References; overridden in `src/lib.rs`.
+    See https://linebender.org/blog/doc-include/.
+ -->
+
+[`&str`]: https://doc.rust-lang.org/stable/std/primitive.str.html
+[`String`]: https://doc.rust-lang.org/stable/alloc/string/struct.String.html
+[`bstr::BStr`]: https://docs.rs/bstr/latest/bstr/struct.BStr.html
+[`bstr::BString`]: https://docs.rs/bstr/latest/bstr/struct.BString.html
+[`slice`]: https://doc.rust-lang.org/stable/std/primitive.slice.html
+[`Vec<u8>`]: https://doc.rust-lang.org/stable/std/vec/struct.Vec.html
+[`OsStr`]: https://doc.rust-lang.org/stable/std/ffi/struct.OsStr.html
+[`OsString`]: https://doc.rust-lang.org/stable/std/ffi/struct.OsString.html
+[`Path`]: https://doc.rust-lang.org/stable/std/path/struct.Path.html
+[`PathBuf`]: https://doc.rust-lang.org/stable/std/path/struct.PathBuf.html
+[`Sh`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Sh.html
+[`Dash`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Dash.html
+[`Bash`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Bash.html
+[`Fish`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Fish.html
+[`Zsh`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Zsh.html
+[`QuoteRefExt`]: https://docs.rs/shell-quote/latest/shell_quote/trait.QuoteRefExt.html
+[`QuoteRefExt::quoted`]: https://docs.rs/shell-quote/latest/shell_quote/trait.QuoteRefExt.html#tymethod.quoted
+[`QuoteExt`]: https://docs.rs/shell-quote/latest/shell_quote/trait.QuoteExt.html
+
+<!-- References end. -->
+
+<div class="readme-only">
+
 # shell-quote
 
-This escapes strings in a way that they can be inserted into shell scripts
-without the risk that they're interpreted as, say, multiple arguments (like with
-Bash's _word splitting_), paths (Bash's _pathname expansion_), shell
+</div>
+
+**shell-quote** escapes strings in a way that they can be inserted into shell
+scripts without the risk that they're interpreted as, say, multiple arguments
+(like with Bash's _word splitting_), paths (Bash's _pathname expansion_), shell
 metacharacters, function calls, or other syntax. This is frequently not as
 simple as wrapping a string in quotes.
 
