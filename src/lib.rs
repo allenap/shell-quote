@@ -16,7 +16,6 @@ mod bash;
 mod fish;
 mod sh;
 mod utf8;
-mod util;
 
 #[cfg(feature = "bash")]
 pub use bash::Bash;

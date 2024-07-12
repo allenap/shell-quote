@@ -124,8 +124,8 @@ impl Sh {
     /// - The string as-is, if no quoting is necessary.
     /// - A string containing single-quoted sections, like `foo' bar'`.
     ///
-    /// See [`quote_into`](#method.quote_into) for a variant that extends an
-    /// existing `Vec` instead of allocating a new one.
+    /// See [`quote_into_vec`][`Self::quote_into_vec`] for a variant that
+    /// extends an existing `Vec` instead of allocating a new one.
     ///
     /// # Examples
     ///
@@ -144,21 +144,12 @@ impl Sh {
             Prepared::Empty => vec![b'\'', b'\''],
             Prepared::Inert => bytes.into(),
             Prepared::Escape(esc) => {
-                // This may be a pointless optimisation, but calculate the
-                // memory needed to avoid reallocations as we construct the
-                // output. Since we'll generate a '…' string, add 2 bytes. Each
-                // single quote can consume an extra 1 to 3 bytes, so we assume
-                // the worse.
-                let quotes: usize = esc
-                    .iter()
-                    .filter(|char| **char == Char::SingleQuote)
-                    .count();
-
-                let size: usize = esc.len() + 2 + (quotes * 3);
-                let mut sout = Vec::with_capacity(size);
-                let cap = sout.capacity();
-                escape_chars(esc, &mut sout); // Do the work.
-                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                // Here, previously, an optimisation precalculated the required
+                // capacity of the output `Vec` to avoid reallocations later on,
+                // but benchmarks showed that it was slower. It _may_ have
+                // lowered maximum RAM required, but that was not measured.
+                let mut sout = Vec::new();
+                escape_chars(esc, &mut sout);
                 sout
             }
         }
@@ -166,7 +157,7 @@ impl Sh {
 
     /// Quote a string of bytes into an existing `Vec<u8>`.
     ///
-    /// See [`quote`](#method.quote) for more details.
+    /// See [`quote_vec`][`Self::quote_vec`] for more details.
     ///
     /// # Examples
     ///
@@ -188,21 +179,11 @@ impl Sh {
             Prepared::Empty => sout.extend(b"''"),
             Prepared::Inert => sout.extend(bytes),
             Prepared::Escape(esc) => {
-                // This may be a pointless optimisation, but calculate the
-                // memory needed to avoid reallocations as we construct the
-                // output. Since we'll generate a '…' string, add 2 bytes. Each
-                // single quote can consume an extra 1 to 3 bytes, so we assume
-                // the worse.
-                let quotes: usize = esc
-                    .iter()
-                    .filter(|char| **char == Char::SingleQuote)
-                    .count();
-
-                let size: usize = esc.len() + 2 + (quotes * 3);
-                sout.reserve(size);
-                let cap = sout.capacity();
-                escape_chars(esc, sout); // Do the work.
-                debug_assert_eq!(cap, sout.capacity()); // No reallocations.
+                // Here, previously, an optimisation precalculated the required
+                // capacity of the output `Vec` to avoid reallocations later on,
+                // but benchmarks showed that it was slower. It _may_ have
+                // lowered maximum RAM required, but that was not measured.
+                escape_chars(esc, sout);
             }
         }
     }
@@ -230,40 +211,40 @@ fn escape_prepare(sin: &[u8]) -> Prepared {
 }
 
 fn escape_chars(esc: Vec<Char>, sout: &mut Vec<u8>) {
-    let mut inside_quotes_now = false;
+    let mut inside_quotes = false;
     for mode in esc {
         use Char::*;
         match mode {
             PrintableInert(ch) | Extended(ch) => sout.push(ch),
             Control(ch) | Printable(ch) => {
-                if inside_quotes_now {
+                if inside_quotes {
                     sout.push(ch);
                 } else {
                     sout.push(b'\'');
-                    inside_quotes_now = true;
+                    inside_quotes = true;
                     sout.push(ch);
                 }
             }
             SingleQuote => {
-                if inside_quotes_now {
+                if inside_quotes {
                     sout.extend(b"'\\'");
-                    inside_quotes_now = false;
+                    inside_quotes = false;
                 } else {
                     sout.extend(b"\\'");
                 }
             }
             ch => {
-                if inside_quotes_now {
+                if inside_quotes {
                     sout.push(ch.code());
                 } else {
                     sout.push(b'\'');
-                    inside_quotes_now = true;
+                    inside_quotes = true;
                     sout.push(ch.code());
                 }
             }
         }
     }
-    if inside_quotes_now {
+    if inside_quotes {
         sout.push(b'\'');
     }
 }

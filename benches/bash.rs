@@ -18,14 +18,19 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| Bash::quote_vec(black_box(&alphanumeric_long)))
     });
 
-    let complex_short = (1..=255u8).map(char::from).collect::<String>();
-    c.bench_function("bash escape complex", |b| {
-        b.iter(|| Bash::quote_vec(black_box(&complex_short)))
+    let bytes_short = (1..=255u8).map(char::from).collect::<String>();
+    c.bench_function("bash escape bytes", |b| {
+        b.iter(|| Bash::quote_vec(black_box(&bytes_short)))
     });
 
-    let complex_long = complex_short.repeat(1000);
-    c.bench_function("bash escape complex long", |b| {
-        b.iter(|| Bash::quote_vec(black_box(&complex_long)))
+    let bytes_long = bytes_short.repeat(1000);
+    c.bench_function("bash escape bytes long", |b| {
+        b.iter(|| Bash::quote_vec(black_box(&bytes_long)))
+    });
+
+    let utf8 = ('\x01'..=char::MAX).collect::<String>();
+    c.bench_function("bash escape utf-8", |b| {
+        b.iter(|| Bash::quote_vec(black_box(&utf8)))
     });
 }
 

@@ -108,8 +108,8 @@ impl Bash {
     /// - The string as-is, if no escaping is necessary.
     /// - An [ANSI-C escaped string][ansi-c-quoting], like `$'foo\nbar'`.
     ///
-    /// See [`quote_into`](#method.quote_into) for a variant that extends an
-    /// existing `Vec` instead of allocating a new one.
+    /// See [`quote_into_vec`][`Self::quote_into_vec`] for a variant that
+    /// extends an existing `Vec` instead of allocating a new one.
     ///
     /// # Examples
     ///
@@ -123,17 +123,17 @@ impl Bash {
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+        // Here, previously, in the `Escape` cases, an optimisation
+        // precalculated the required capacity of the output `Vec` to avoid
+        // reallocations later on, but benchmarks showed that it was slower. It
+        // _may_ have lowered maximum RAM required, but that was not measured.
         match s.into() {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
                 bytes::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(bytes::escape_size).sum();
-                    let mut sout = Vec::with_capacity(size + 3);
-                    bytes::escape_chars(esc, &mut sout); // Do the work.
+                    let mut sout = Vec::new();
+                    bytes::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -141,12 +141,8 @@ impl Bash {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
                 text::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(text::escape_size).sum();
-                    let mut sout = Vec::with_capacity(size + 3);
-                    text::escape_chars(esc, &mut sout); // Do the work.
+                    let mut sout = Vec::new();
+                    text::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -155,7 +151,7 @@ impl Bash {
 
     /// Quote a string of bytes into an existing `Vec<u8>`.
     ///
-    /// See [`quote`](#method.quote) for more details.
+    /// See [`quote_vec`][`Self::quote_vec`] for more details.
     ///
     /// # Examples
     ///
@@ -169,34 +165,20 @@ impl Bash {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+        // Here, previously, in the `Escape` cases, an optimisation
+        // precalculated the required capacity of the output `Vec` to avoid
+        // reallocations later on, but benchmarks showed that it was slower. It
+        // _may_ have lowered maximum RAM required, but that was not measured.
         match s.into() {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
-                bytes::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(bytes::escape_size).sum();
-                    sout.reserve(size + 3);
-                    let cap = sout.capacity();
-                    bytes::escape_chars(esc, sout); // Do the work.
-                    debug_assert_eq!(cap, sout.capacity()); // No reallocations.
-                }
+                bytes::Prepared::Escape(esc) => bytes::escape_chars(esc, sout),
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
-                text::Prepared::Escape(esc) => {
-                    // This may be a pointless optimisation, but calculate the
-                    // memory needed to avoid reallocations as we construct the
-                    // output. Since we'll generate a $'…' string, add 3 bytes.
-                    let size: usize = esc.iter().map(text::escape_size).sum();
-                    sout.reserve(size + 3);
-                    let cap = sout.capacity();
-                    text::escape_chars(esc, sout); // Do the work.
-                    debug_assert_eq!(cap, sout.capacity()); // No reallocations.
-                }
+                text::Prepared::Escape(esc) => text::escape_chars(esc, sout),
             },
         }
     }
@@ -205,7 +187,8 @@ impl Bash {
 // ----------------------------------------------------------------------------
 
 mod bytes {
-    use crate::{ascii::Char, util::u8_to_hex_escape};
+    use super::u8_to_hex_escape;
+    use crate::ascii::Char;
 
     pub enum Prepared {
         Empty,
@@ -252,34 +235,13 @@ mod bytes {
         }
         sout.push(b'\'');
     }
-
-    pub fn escape_size(char: &Char) -> usize {
-        use Char::*;
-        match char {
-            Bell => 2,
-            Backspace => 2,
-            Escape => 2,
-            FormFeed => 2,
-            NewLine => 2,
-            CarriageReturn => 2,
-            HorizontalTab => 2,
-            VerticalTab => 2,
-            Control(_) => 4,
-            Backslash => 2,
-            SingleQuote => 2,
-            DoubleQuote => 1,
-            Delete => 4,
-            PrintableInert(_) => 1,
-            Printable(_) => 1,
-            Extended(_) => 4,
-        }
-    }
 }
 
 // ----------------------------------------------------------------------------
 
 mod text {
-    use crate::{utf8::Char, util::u8_to_hex_escape};
+    use super::u8_to_hex_escape;
+    use crate::utf8::Char;
 
     pub enum Prepared {
         Empty,
@@ -327,26 +289,32 @@ mod text {
         }
         sout.push(b'\'');
     }
+}
 
-    pub fn escape_size(ch: &Char) -> usize {
-        use Char::*;
-        match ch {
-            Bell => 2,
-            Backspace => 2,
-            Escape => 2,
-            FormFeed => 2,
-            NewLine => 2,
-            CarriageReturn => 2,
-            HorizontalTab => 2,
-            VerticalTab => 2,
-            Control(_) => 4,
-            Backslash => 2,
-            SingleQuote => 2,
-            DoubleQuote => 1,
-            Delete => 4,
-            PrintableInert(_) => 1,
-            Printable(_) => 1,
-            Utf8(ch) => ch.len_utf8(),
-        }
+// ----------------------------------------------------------------------------
+
+/// Escape a byte as a 4-byte hex escape sequence.
+///
+/// The `\\xHH` format (backslash, a literal "x", two hex characters) is
+/// understood by many shells.
+#[inline]
+fn u8_to_hex_escape(ch: u8) -> [u8; 4] {
+    const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
+    [
+        b'\\',
+        b'x',
+        HEX_DIGITS[(ch >> 4) as usize],
+        HEX_DIGITS[(ch & 0xF) as usize],
+    ]
+}
+
+#[cfg(test)]
+#[test]
+fn test_u8_to_hex_escape() {
+    for ch in u8::MIN..=u8::MAX {
+        let expected = format!("\\x{ch:02X}");
+        let observed = u8_to_hex_escape(ch);
+        let observed = std::str::from_utf8(&observed).unwrap();
+        assert_eq!(observed, &expected);
     }
 }

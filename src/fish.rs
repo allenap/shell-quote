@@ -78,8 +78,8 @@ impl Fish {
     /// - The string as-is, if no escaping is necessary.
     /// - An escaped string, like `'foo \'bar'`, `\a'ABC'`
     ///
-    /// See [`quote_into`](#method.quote_into) for a variant that extends an
-    /// existing `Vec` instead of allocating a new one.
+    /// See [`quote_into_vec`][`Self::quote_into_vec`] for a variant that
+    /// extends an existing `Vec` instead of allocating a new one.
     ///
     /// # Examples
     ///
@@ -94,8 +94,8 @@ impl Fish {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
                 bytes::Prepared::Escape(esc) => {
-                    let mut sout = Vec::with_capacity(esc.len() + 2);
-                    bytes::escape_chars(esc, &mut sout); // Do the work.
+                    let mut sout = Vec::new();
+                    bytes::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -103,8 +103,8 @@ impl Fish {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
                 text::Prepared::Escape(esc) => {
-                    let mut sout = Vec::with_capacity(esc.len() + 2);
-                    text::escape_chars(esc, &mut sout); // Do the work.
+                    let mut sout = Vec::new();
+                    text::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -113,7 +113,7 @@ impl Fish {
 
     /// Quote a string of bytes into an existing `Vec<u8>`.
     ///
-    /// See [`quote`](#method.quote) for more details.
+    /// See [`quote_vec`][`Self::quote_vec`] for more details.
     ///
     /// # Examples
     ///
@@ -131,18 +131,12 @@ impl Fish {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
-                bytes::Prepared::Escape(esc) => {
-                    sout.reserve(esc.len() + 2);
-                    bytes::escape_chars(esc, sout); // Do the work.
-                }
+                bytes::Prepared::Escape(esc) => bytes::escape_chars(esc, sout),
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
-                text::Prepared::Escape(esc) => {
-                    sout.reserve(esc.len() + 2);
-                    text::escape_chars(esc, sout); // Do the work.
-                }
+                text::Prepared::Escape(esc) => text::escape_chars(esc, sout),
             },
         }
     }
@@ -151,7 +145,8 @@ impl Fish {
 // ----------------------------------------------------------------------------
 
 mod bytes {
-    use crate::{ascii::Char, util::u8_to_hex_escape_uppercase_x};
+    use super::u8_to_hex_escape_uppercase_x;
+    use crate::ascii::Char;
 
     pub enum Prepared {
         Empty,
@@ -226,7 +221,8 @@ mod bytes {
 // ----------------------------------------------------------------------------
 
 mod text {
-    use crate::{utf8::Char, util::u8_to_hex_escape_uppercase_x};
+    use super::u8_to_hex_escape_uppercase_x;
+    use crate::utf8::Char;
 
     pub enum Prepared {
         Empty,
@@ -296,5 +292,41 @@ mod text {
         if inside_quotes_now {
             sout.push(b'\'');
         }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+/// Escape a byte as a 4-byte hex escape sequence _with uppercase "X"_.
+///
+/// The `\\XHH` format (backslash, a literal "X", two hex characters) is
+/// understood by fish. The `\\xHH` format is _also_ understood, but until fish
+/// 3.6.0 it had a weirdness. From the [release notes][]:
+///
+/// > The `\\x` and `\\X` escape syntax is now equivalent. `\\xAB` previously
+/// > behaved the same as `\\XAB`, except that it would error if the value “AB”
+/// > was larger than “7f” (127 in decimal, the highest ASCII value).
+///
+/// [release notes]: https://github.com/fish-shell/fish-shell/releases/tag/3.6.0
+///
+#[inline]
+fn u8_to_hex_escape_uppercase_x(ch: u8) -> [u8; 4] {
+    const HEX_DIGITS: &[u8] = b"0123456789ABCDEF";
+    [
+        b'\\',
+        b'X',
+        HEX_DIGITS[(ch >> 4) as usize],
+        HEX_DIGITS[(ch & 0xF) as usize],
+    ]
+}
+
+#[cfg(test)]
+#[test]
+fn test_u8_to_hex_escape_uppercase_x() {
+    for ch in u8::MIN..=u8::MAX {
+        let expected = format!("\\X{ch:02X}");
+        let observed = u8_to_hex_escape_uppercase_x(ch);
+        let observed = std::str::from_utf8(&observed).unwrap();
+        assert_eq!(observed, &expected);
     }
 }
