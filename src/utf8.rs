@@ -1,8 +1,8 @@
 #![cfg(any(feature = "bash", feature = "fish", feature = "sh"))]
 
-//! Scanner for ASCII control codes, shell metacharacters, printable characters,
-//! and extended codes, i.e. classify each byte in a stream according to where
-//! it appears in extended ASCII.
+//! Scanner for control codes, shell metacharacters, printable characters, and
+//! UTF-8 sequences, i.e. classify each byte in a stream according to where it
+//! appears in UTF-8.
 
 #[derive(PartialEq)]
 pub(crate) enum Char {

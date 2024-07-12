@@ -95,7 +95,7 @@ impl Fish {
                 bytes::Prepared::Inert => bytes.into(),
                 bytes::Prepared::Escape(esc) => {
                     let mut sout = Vec::new();
-                    bytes::escape_chars(esc, &mut sout); // Do the work.
+                    bytes::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -104,7 +104,7 @@ impl Fish {
                 text::Prepared::Inert => text.into(),
                 text::Prepared::Escape(esc) => {
                     let mut sout = Vec::new();
-                    text::escape_chars(esc, &mut sout); // Do the work.
+                    text::escape_chars(esc, &mut sout);
                     sout
                 }
             },

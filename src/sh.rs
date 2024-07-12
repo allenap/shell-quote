@@ -144,12 +144,12 @@ impl Sh {
             Prepared::Empty => vec![b'\'', b'\''],
             Prepared::Inert => bytes.into(),
             Prepared::Escape(esc) => {
-                // Previously an optimisation here precalculated the required
+                // Here, previously, an optimisation precalculated the required
                 // capacity of the output `Vec` to avoid reallocations later on,
                 // but benchmarks showed that it was slower. It _may_ have
                 // lowered maximum RAM required, but that was not measured.
                 let mut sout = Vec::new();
-                escape_chars(esc, &mut sout); // Do the work.
+                escape_chars(esc, &mut sout);
                 sout
             }
         }
@@ -179,11 +179,11 @@ impl Sh {
             Prepared::Empty => sout.extend(b"''"),
             Prepared::Inert => sout.extend(bytes),
             Prepared::Escape(esc) => {
-                // Previously an optimisation here precalculated the required
+                // Here, previously, an optimisation precalculated the required
                 // capacity of the output `Vec` to avoid reallocations later on,
                 // but benchmarks showed that it was slower. It _may_ have
                 // lowered maximum RAM required, but that was not measured.
-                escape_chars(esc, sout); // Do the work.
+                escape_chars(esc, sout);
             }
         }
     }

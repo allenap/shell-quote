@@ -123,18 +123,17 @@ impl Bash {
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
     pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+        // Here, previously, in the `Escape` cases, an optimisation
+        // precalculated the required capacity of the output `Vec` to avoid
+        // reallocations later on, but benchmarks showed that it was slower. It
+        // _may_ have lowered maximum RAM required, but that was not measured.
         match s.into() {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => vec![b'\'', b'\''],
                 bytes::Prepared::Inert => bytes.into(),
                 bytes::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
                     let mut sout = Vec::new();
-                    bytes::escape_chars(esc, &mut sout); // Do the work.
+                    bytes::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -142,13 +141,8 @@ impl Bash {
                 text::Prepared::Empty => vec![b'\'', b'\''],
                 text::Prepared::Inert => text.into(),
                 text::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
                     let mut sout = Vec::new();
-                    text::escape_chars(esc, &mut sout); // Do the work.
+                    text::escape_chars(esc, &mut sout);
                     sout
                 }
             },
@@ -171,30 +165,20 @@ impl Bash {
     /// ```
     ///
     pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+        // Here, previously, in the `Escape` cases, an optimisation
+        // precalculated the required capacity of the output `Vec` to avoid
+        // reallocations later on, but benchmarks showed that it was slower. It
+        // _may_ have lowered maximum RAM required, but that was not measured.
         match s.into() {
             Quotable::Bytes(bytes) => match bytes::escape_prepare(bytes) {
                 bytes::Prepared::Empty => sout.extend(b"''"),
                 bytes::Prepared::Inert => sout.extend(bytes),
-                bytes::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
-                    bytes::escape_chars(esc, sout); // Do the work.
-                }
+                bytes::Prepared::Escape(esc) => bytes::escape_chars(esc, sout),
             },
             Quotable::Text(text) => match text::escape_prepare(text) {
                 text::Prepared::Empty => sout.extend(b"''"),
                 text::Prepared::Inert => sout.extend(text.as_bytes()),
-                text::Prepared::Escape(esc) => {
-                    // Previously an optimisation here precalculated the
-                    // required capacity of the output `Vec` to avoid
-                    // reallocations later on, but benchmarks showed that it was
-                    // slower. It _may_ have lowered maximum RAM required, but
-                    // that was not measured.
-                    text::escape_chars(esc, sout); // Do the work.
-                }
+                text::Prepared::Escape(esc) => text::escape_chars(esc, sout),
             },
         }
     }
