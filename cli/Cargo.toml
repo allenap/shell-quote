@@ -1,0 +1,15 @@
+[package]
+name = "shell-quote-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+path = "src/main.rs"
+name = "sq"
+
+[dependencies]
+shell-quote = { path = ".." }
+
+[dependencies.clap]
+version = "=4.5.9"
+features = ["derive", "env", "wrap_help"]

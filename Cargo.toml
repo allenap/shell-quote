@@ -1,3 +1,6 @@
+[workspace]
+members = ["cli", "."]
+
 [package]
 authors = ["Gavin Panella <gavin@allenap.me>"]
 categories = ["encoding", "filesystem"]
