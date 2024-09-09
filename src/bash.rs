@@ -70,20 +70,20 @@ pub struct Bash;
 // ----------------------------------------------------------------------------
 
 impl QuoteInto<Vec<u8>> for Bash {
-    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
+    fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut Vec<u8>) {
         Self::quote_into_vec(s, out);
     }
 }
 
 impl QuoteInto<String> for Bash {
-    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut String) {
+    fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut String) {
         Self::quote_into_vec(s, unsafe { out.as_mut_vec() })
     }
 }
 
 #[cfg(unix)]
 impl QuoteInto<std::ffi::OsString> for Bash {
-    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
+    fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
         use std::os::unix::ffi::OsStringExt;
         let s = Self::quote_vec(s);
         let s = std::ffi::OsString::from_vec(s);
@@ -93,7 +93,7 @@ impl QuoteInto<std::ffi::OsString> for Bash {
 
 #[cfg(feature = "bstr")]
 impl QuoteInto<bstr::BString> for Bash {
-    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
+    fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut bstr::BString) {
         let s = Self::quote_vec(s);
         out.extend(s);
     }
@@ -122,7 +122,7 @@ impl Bash {
     /// [ansi-c-quoting]:
     ///     https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html
     ///
-    pub fn quote_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S) -> Vec<u8> {
+    pub fn quote_vec<'a, S: Into<Quotable<'a>>>(s: S) -> Vec<u8> {
         // Here, previously, in the `Escape` cases, an optimisation
         // precalculated the required capacity of the output `Vec` to avoid
         // reallocations later on, but benchmarks showed that it was slower. It
@@ -164,7 +164,7 @@ impl Bash {
     /// assert_eq!(buf, b"foobar $'foo bar'");
     /// ```
     ///
-    pub fn quote_into_vec<'a, S: ?Sized + Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
+    pub fn quote_into_vec<'a, S: Into<Quotable<'a>>>(s: S, sout: &mut Vec<u8>) {
         // Here, previously, in the `Escape` cases, an optimisation
         // precalculated the required capacity of the output `Vec` to avoid
         // reallocations later on, but benchmarks showed that it was slower. It
