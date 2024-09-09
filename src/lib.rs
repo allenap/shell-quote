@@ -67,13 +67,13 @@ pub type Zsh = bash::Bash;
 /// Quoting/escaping a string of bytes into a shell-safe form.
 pub trait QuoteInto<OUT: ?Sized> {
     /// Quote/escape a string of bytes into an existing container.
-    fn quote_into<'q, S: ?Sized + Into<Quotable<'q>>>(s: S, out: &mut OUT);
+    fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut OUT);
 }
 
 /// Quoting/escaping a string of bytes into a shell-safe form.
 pub trait Quote<OUT: Default>: QuoteInto<OUT> {
     /// Quote/escape a string of bytes into a new container.
-    fn quote<'q, S: ?Sized + Into<Quotable<'q>>>(s: S) -> OUT {
+    fn quote<'q, S: Into<Quotable<'q>>>(s: S) -> OUT {
         let mut out = OUT::default();
         Self::quote_into(s, &mut out);
         out
@@ -92,14 +92,14 @@ pub trait QuoteExt {
     fn push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
     where
         Q: QuoteInto<Self>,
-        S: ?Sized + Into<Quotable<'q>>;
+        S: Into<Quotable<'q>>;
 }
 
 impl<T: ?Sized> QuoteExt for T {
     fn push_quoted<'q, Q, S>(&mut self, _q: Q, s: S)
     where
         Q: QuoteInto<Self>,
-        S: ?Sized + Into<Quotable<'q>>,
+        S: Into<Quotable<'q>>,
     {
         Q::quote_into(s, self);
     }
@@ -117,7 +117,7 @@ pub trait QuoteRefExt<Output: Default> {
 
 impl<'a, S, OUT: Default> QuoteRefExt<OUT> for S
 where
-    S: ?Sized + Into<Quotable<'a>>,
+    S: Into<Quotable<'a>>,
 {
     fn quoted<Q: Quote<OUT>>(self, _q: Q) -> OUT {
         Q::quote(self)
