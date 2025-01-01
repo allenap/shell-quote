@@ -11,7 +11,7 @@ fn fish_version(bin: &Path) -> semver::Version {
     let script = "printf %s $version";
     let output = Command::new(bin).arg("-c").arg(script).output().unwrap();
     let version = String::from_utf8(output.stdout).unwrap();
-    semver::Version::parse(&version).unwrap()
+    lenient_semver::parse(&version).unwrap()
 }
 
 /// The `\\XHH` format (backslash, a literal "X", two hex characters) is
