@@ -73,7 +73,7 @@ use crate::{ascii::Char, Quotable, QuoteInto};
 /// > ## Double Quotes
 /// >
 /// >   Enclosing characters within double quotes preserves the literal meaning
-/// >   of all characters except dollarsign ($), backquote (`), and backslash
+/// >   of all characters except dollarsign ($), backquote (\`), and backslash
 /// >   (\).  The backslash inside double quotes is historically weird, and
 /// >   serves to quote only the following characters:
 /// >

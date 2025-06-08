@@ -49,7 +49,7 @@ impl QuoteInto<Vec<u8>> for Fish {
 
 impl QuoteInto<String> for Fish {
     fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut String) {
-        Self::quote_into_vec(s, unsafe { out.as_mut_vec() })
+        Self::quote_into_vec(s, unsafe { out.as_mut_vec() });
     }
 }
 

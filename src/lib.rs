@@ -35,6 +35,23 @@
     ),
     doc = include_str!("../README.md")
 )]
+#![warn(clippy::unused_result_ok)]
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::default_trait_access,
+    clippy::enum_glob_use,
+    clippy::items_after_statements,
+    clippy::map_unwrap_or,
+    clippy::match_same_arms,
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    clippy::redundant_closure_for_method_calls,
+    clippy::struct_field_names,
+    clippy::too_many_lines,
+    clippy::unnecessary_debug_formatting,
+    clippy::unused_async
+)]
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
