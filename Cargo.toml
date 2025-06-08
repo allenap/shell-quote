@@ -34,11 +34,16 @@ harness = false
 required-features = ["bash"]
 
 [[bench]]
-name = "sh"
-harness = false
-required-features = ["sh"]
-
-[[bench]]
 name = "fish"
 harness = false
 required-features = ["fish"]
+
+[[bench]]
+name = "pwsh"
+harness = false
+required-features = ["pwsh"]
+
+[[bench]]
+name = "sh"
+harness = false
+required-features = ["sh"]
