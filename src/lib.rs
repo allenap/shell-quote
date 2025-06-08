@@ -15,6 +15,7 @@
 //! [`Dash`]: `Dash`
 //! [`Bash`]: `Bash`
 //! [`Fish`]: `Fish`
+//! [`Pwsh`]: `Pwsh`
 //! [`Zsh`]: `Zsh`
 //!
 //! [`QuoteRefExt`]: `QuoteRefExt`
@@ -31,6 +32,7 @@
         feature = "bstr",
         feature = "bash",
         feature = "fish",
+        feature = "pwsh",
         feature = "sh",
     ),
     doc = include_str!("../README.md")
@@ -59,6 +61,7 @@ use std::path::{Path, PathBuf};
 mod ascii;
 mod bash;
 mod fish;
+mod pwsh;
 mod sh;
 mod utf8;
 
@@ -66,6 +69,8 @@ mod utf8;
 pub use bash::Bash;
 #[cfg(feature = "fish")]
 pub use fish::Fish;
+#[cfg(feature = "pwsh")]
+pub use pwsh::Pwsh;
 #[cfg(feature = "sh")]
 pub use sh::Sh;
 
@@ -152,12 +157,12 @@ where
 /// [`PathBuf`]/[`Path`] didn't work in a natural way.
 pub enum Quotable<'a> {
     #[cfg_attr(
-        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        not(any(feature = "bash", feature = "fish", feature = "pwsh", feature = "sh")),
         allow(unused)
     )]
     Bytes(&'a [u8]),
     #[cfg_attr(
-        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        not(any(feature = "bash", feature = "fish", feature = "pwsh", feature = "sh")),
         allow(unused)
     )]
     Text(&'a str),

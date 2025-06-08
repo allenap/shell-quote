@@ -13,9 +13,10 @@ version = "0.7.2"
 include = ["LICENSE", "README.md", "src/**/*.rs"]
 
 [features]
-default = ["bstr", "bash", "sh", "fish"]
+default = ["bstr", "bash", "pwsh", "sh", "fish"]
 bash = []
 fish = []
+pwsh = []
 sh = []
 
 [dependencies]

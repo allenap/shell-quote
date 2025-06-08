@@ -10,8 +10,10 @@
         "dtolnay",
         "execing",
         "getconf",
+        "idents",
         "metacharacters",
         "POSIX",
+        "pwsh",
         "Rustfmt",
         "sout",
         "UXXXXXXXX"
