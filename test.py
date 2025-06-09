@@ -1,6 +1,6 @@
 from itertools import combinations
 
-features = "bstr", "bash", "fish", "sh"
+features = "bstr", "bash", "fish", "pwsh", "sh"
 
 def power_set(input):
     for length in range(0, len(input) + 1):
