@@ -13,18 +13,19 @@ version = "0.7.2"
 include = ["LICENSE", "README.md", "src/**/*.rs"]
 
 [features]
-default = ["bstr", "bash", "sh", "fish"]
+default = ["bstr", "bash", "pwsh", "sh", "fish"]
 bash = []
 fish = []
+pwsh = []
 sh = []
 
 [dependencies]
 bstr = { version = "1", optional = true }
 
 [dev-dependencies]
-criterion = { version = "^0.5.1", features = ["html_reports"] }
+criterion = { version = "^0.6.0", features = ["html_reports"] }
 lenient_semver = "0.4.2"
-semver = "1.0.23"
+semver = "1.0.26"
 test-case = "3.3.1"
 
 [[bench]]
@@ -33,11 +34,16 @@ harness = false
 required-features = ["bash"]
 
 [[bench]]
-name = "sh"
-harness = false
-required-features = ["sh"]
-
-[[bench]]
 name = "fish"
 harness = false
 required-features = ["fish"]
+
+[[bench]]
+name = "pwsh"
+harness = false
+required-features = ["pwsh"]
+
+[[bench]]
+name = "sh"
+harness = false
+required-features = ["sh"]

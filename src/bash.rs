@@ -77,7 +77,7 @@ impl QuoteInto<Vec<u8>> for Bash {
 
 impl QuoteInto<String> for Bash {
     fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut String) {
-        Self::quote_into_vec(s, unsafe { out.as_mut_vec() })
+        Self::quote_into_vec(s, unsafe { out.as_mut_vec() });
     }
 }
 

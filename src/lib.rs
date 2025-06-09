@@ -15,6 +15,7 @@
 //! [`Dash`]: `Dash`
 //! [`Bash`]: `Bash`
 //! [`Fish`]: `Fish`
+//! [`Pwsh`]: `Pwsh`
 //! [`Zsh`]: `Zsh`
 //!
 //! [`QuoteRefExt`]: `QuoteRefExt`
@@ -31,9 +32,27 @@
         feature = "bstr",
         feature = "bash",
         feature = "fish",
+        feature = "pwsh",
         feature = "sh",
     ),
     doc = include_str!("../README.md")
+)]
+#![warn(clippy::unused_result_ok)]
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::default_trait_access,
+    clippy::enum_glob_use,
+    clippy::items_after_statements,
+    clippy::map_unwrap_or,
+    clippy::match_same_arms,
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    clippy::redundant_closure_for_method_calls,
+    clippy::struct_field_names,
+    clippy::too_many_lines,
+    clippy::unnecessary_debug_formatting,
+    clippy::unused_async
 )]
 
 use std::ffi::{OsStr, OsString};
@@ -42,6 +61,7 @@ use std::path::{Path, PathBuf};
 mod ascii;
 mod bash;
 mod fish;
+mod pwsh;
 mod sh;
 mod utf8;
 
@@ -49,6 +69,8 @@ mod utf8;
 pub use bash::Bash;
 #[cfg(feature = "fish")]
 pub use fish::Fish;
+#[cfg(feature = "pwsh")]
+pub use pwsh::Pwsh;
 #[cfg(feature = "sh")]
 pub use sh::Sh;
 
@@ -135,12 +157,12 @@ where
 /// [`PathBuf`]/[`Path`] didn't work in a natural way.
 pub enum Quotable<'a> {
     #[cfg_attr(
-        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        not(any(feature = "bash", feature = "fish", feature = "pwsh", feature = "sh")),
         allow(unused)
     )]
     Bytes(&'a [u8]),
     #[cfg_attr(
-        not(any(feature = "bash", feature = "fish", feature = "sh")),
+        not(any(feature = "bash", feature = "fish", feature = "pwsh", feature = "sh")),
         allow(unused)
     )]
     Text(&'a str),

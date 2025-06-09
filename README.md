@@ -17,6 +17,7 @@
 [`Dash`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Dash.html
 [`Bash`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Bash.html
 [`Fish`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Fish.html
+[`Pwsh`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Pwsh.html
 [`Zsh`]: https://docs.rs/shell-quote/latest/shell_quote/struct.Zsh.html
 [`QuoteRefExt`]: https://docs.rs/shell-quote/latest/shell_quote/trait.QuoteRefExt.html
 [`QuoteRefExt::quoted`]: https://docs.rs/shell-quote/latest/shell_quote/trait.QuoteRefExt.html#tymethod.quoted
@@ -37,11 +38,12 @@ metacharacters, function calls, or other syntax. This is frequently not as
 simple as wrapping a string in quotes.
 
 This package implements escaping for [GNU Bash][gnu-bash], [Z Shell][z-shell],
-[fish][], and `/bin/sh`-like shells including [Dash][dash].
+[fish][], [PowerShell][pwsh], and `/bin/sh`-like shells including [Dash][dash].
 
 [dash]: https://en.wikipedia.org/wiki/Almquist_shell#dash
 [gnu-bash]: https://www.gnu.org/software/bash/
 [z-shell]: https://zsh.sourceforge.io/
+[pwsh]: https://learn.microsoft.com/powershell/
 [fish]: https://fishshell.com/
 
 It can take as input many different string and byte string types:
@@ -66,29 +68,31 @@ Inspired by the Haskell [shell-escape][] package.
 ## Examples
 
 When quoting using raw bytes it can be convenient to call [`Sh`]'s, [`Dash`]'s,
-[`Bash`]'s, [`Fish`]'s, and [`Zsh`]'s associated functions directly:
+[`Bash`]'s, [`Fish`]'s, [`Pwsh`]'s, and [`Zsh`]'s associated functions directly:
 
 ```rust
-use shell_quote::{Bash, Dash, Fish, Sh, Zsh};
+use shell_quote::{Bash, Dash, Fish, Pwsh, Sh, Zsh};
 // No quoting is necessary for simple strings.
 assert_eq!(Sh::quote_vec("foobar"), b"foobar");
 assert_eq!(Dash::quote_vec("foobar"), b"foobar");  // `Dash` is an alias for `Sh`
 assert_eq!(Bash::quote_vec("foobar"), b"foobar");
 assert_eq!(Zsh::quote_vec("foobar"), b"foobar");   // `Zsh` is an alias for `Bash`
 assert_eq!(Fish::quote_vec("foobar"), b"foobar");
+assert_eq!(Pwsh::quote_vec("foobar"), b"'foobar'");
 // In all shells, quoting is necessary for strings with spaces.
 assert_eq!(Sh::quote_vec("foo bar"), b"foo' bar'");
 assert_eq!(Dash::quote_vec("foo bar"), b"foo' bar'");
 assert_eq!(Bash::quote_vec("foo bar"), b"$'foo bar'");
 assert_eq!(Zsh::quote_vec("foo bar"), b"$'foo bar'");
 assert_eq!(Fish::quote_vec("foo bar"), b"foo' bar'");
+assert_eq!(Pwsh::quote_vec("foo bar"), b"'foo bar'");
 ```
 
 It's also possible to use the extension trait [`QuoteRefExt`] which provides a
 [`quoted`][`QuoteRefExt::quoted`] function:
 
 ```rust
-use shell_quote::{Bash, Sh, Fish, QuoteRefExt};
+use shell_quote::{Bash, Sh, Fish, Pwsh, QuoteRefExt};
 let quoted: String = "foo bar".quoted(Bash);
 assert_eq!(quoted, "$'foo bar'");
 let quoted: Vec<u8> = "foo bar".quoted(Sh);
@@ -159,7 +163,8 @@ assert_eq!(&data_iso_8859_1_quoted, b"$'caf\\xE9'"); // ISO-8859-1: 1 byte, hex 
 
 [`Sh`] can serve as a lowest common denominator for Bash, Z Shell, and
 `/bin/sh`-like shells like Dash. However, fish's quoting rules are different
-enough that you must use [`Fish`] for fish scripts.
+enough that you must use [`Fish`] for fish scripts, and PowerShells's rules are
+different enough again that you must use [`Pwsh`] for PowerShell scripts.
 
 Note that using [`Sh`] as a lowest common denominator brings with it other
 issues; read its documentation carefully to understand the limitations.
@@ -171,6 +176,7 @@ The following are all enabled by default:
 - `bstr`: Support [`bstr::BStr`] and [`bstr::BString`].
 - `bash`: Support [Bash][gnu-bash] and [Z Shell][z-shell].
 - `fish`: Support [fish][].
+- `pwsh`: Support [PowerShell][pwsh].
 - `sh`: Support `/bin/sh`-like shells including [Dash][dash].
 
 To limit support to specific shells, you must disable this crate's default
