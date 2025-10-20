@@ -36,9 +36,6 @@
     doc = include_str!("../README.md")
 )]
 
-use std::ffi::{OsStr, OsString};
-use std::path::{Path, PathBuf};
-
 mod ascii;
 mod bash;
 mod fish;
@@ -176,22 +173,6 @@ impl<'a> From<&'a String> for Quotable<'a> {
     }
 }
 
-#[cfg(unix)]
-impl<'a> From<&'a OsStr> for Quotable<'a> {
-    fn from(source: &'a OsStr) -> Quotable<'a> {
-        use std::os::unix::ffi::OsStrExt;
-        source.as_bytes().into()
-    }
-}
-
-#[cfg(unix)]
-impl<'a> From<&'a OsString> for Quotable<'a> {
-    fn from(source: &'a OsString) -> Quotable<'a> {
-        use std::os::unix::ffi::OsStrExt;
-        source.as_bytes().into()
-    }
-}
-
 #[cfg(feature = "bstr")]
 impl<'a> From<&'a bstr::BStr> for Quotable<'a> {
     fn from(source: &'a bstr::BStr) -> Quotable<'a> {
@@ -208,16 +189,99 @@ impl<'a> From<&'a bstr::BString> for Quotable<'a> {
     }
 }
 
+// ----------------------------------------------------------------------------
+
+/// Unix-specific support.
 #[cfg(unix)]
-impl<'a> From<&'a Path> for Quotable<'a> {
-    fn from(source: &'a Path) -> Quotable<'a> {
-        source.as_os_str().into()
+mod platform {
+    use std::ffi::{OsStr, OsString};
+    use std::path::{Path, PathBuf};
+
+    use super::Quotable;
+
+    impl<'a> From<&'a OsStr> for Quotable<'a> {
+        fn from(source: &'a OsStr) -> Quotable<'a> {
+            use std::os::unix::ffi::OsStrExt;
+            source.as_bytes().into()
+        }
+    }
+
+    impl<'a> From<&'a OsString> for Quotable<'a> {
+        fn from(source: &'a OsString) -> Quotable<'a> {
+            use std::os::unix::ffi::OsStrExt;
+            source.as_bytes().into()
+        }
+    }
+
+    impl<'a> From<&'a Path> for Quotable<'a> {
+        fn from(source: &'a Path) -> Quotable<'a> {
+            source.as_os_str().into()
+        }
+    }
+
+    impl<'a> From<&'a PathBuf> for Quotable<'a> {
+        fn from(source: &'a PathBuf) -> Quotable<'a> {
+            source.as_os_str().into()
+        }
     }
 }
 
-#[cfg(unix)]
-impl<'a> From<&'a PathBuf> for Quotable<'a> {
-    fn from(source: &'a PathBuf) -> Quotable<'a> {
-        source.as_os_str().into()
+// ----------------------------------------------------------------------------
+
+#[cfg(windows)]
+pub use platform::UnicodeError;
+
+/// Windows-specific support.
+#[cfg(windows)]
+mod platform {
+    use std::ffi::{OsStr, OsString};
+    use std::path::{Path, PathBuf};
+
+    use super::Quotable;
+
+    /// Error when converting an [`OsStr`]/[`OsString`] that contains invalid
+    /// Unicode, e.g. unpaired UTF-16 surrogates on Windows.
+    #[derive(Debug, Clone)]
+    #[non_exhaustive]
+    pub struct UnicodeError {}
+
+    impl std::error::Error for UnicodeError {}
+
+    impl std::fmt::Display for UnicodeError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "invalid Unicode (unpaired UTF-16 surrogates)")
+        }
+    }
+
+    impl<'a> TryFrom<&'a OsStr> for Quotable<'a> {
+        type Error = UnicodeError;
+
+        fn try_from(source: &'a OsStr) -> Result<Self, Self::Error> {
+            source.to_str().map(Quotable::Text).ok_or(UnicodeError {})
+        }
+    }
+
+    impl<'a> TryFrom<&'a OsString> for Quotable<'a> {
+        type Error = UnicodeError;
+
+        fn try_from(source: &'a OsString) -> Result<Self, Self::Error> {
+            source.as_os_str().try_into()
+        }
+    }
+
+    impl<'a> TryFrom<&'a Path> for Quotable<'a> {
+        type Error = UnicodeError;
+
+        fn try_from(source: &'a Path) -> Result<Self, Self::Error> {
+            source.as_os_str().try_into()
+        }
+    }
+
+    impl<'a> TryFrom<&'a PathBuf> for Quotable<'a> {
+        type Error = UnicodeError;
+
+        fn try_from(source: &'a PathBuf) -> Result<Self, Self::Error> {
+            source.as_os_str().try_into()
+        }
     }
 }
