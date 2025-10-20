@@ -81,7 +81,6 @@ mod bash_impl {
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
-    #[cfg(unix)]
     #[test_matrix(
         (script_bytes, script_text),
         ("bash", "zsh")
@@ -96,7 +95,6 @@ mod bash_impl {
         }
     }
 
-    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
         use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
@@ -113,7 +111,6 @@ mod bash_impl {
         (input, script)
     }
 
-    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
         use std::os::unix::ffi::OsStringExt;
         // NOTE: Do NOT use `echo` here; in most/all shells it interprets
@@ -127,7 +124,6 @@ mod bash_impl {
         (resources::UTF8_SAMPLE.into(), script)
     }
 
-    #[cfg(unix)]
     #[test_matrix(("bash", "zsh"))]
     fn test_roundtrip_utf8_full(shell: &str) {
         use std::os::unix::ffi::OsStringExt;

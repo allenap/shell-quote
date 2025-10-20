@@ -128,7 +128,6 @@ mod fish_impl {
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
-    #[cfg(unix)]
     #[test_matrix((script_bytes, script_text))]
     fn test_roundtrip(prepare: fn() -> (OsString, OsString)) {
         use std::os::unix::ffi::OsStringExt;
@@ -141,7 +140,6 @@ mod fish_impl {
         }
     }
 
-    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
         use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
@@ -155,7 +153,6 @@ mod fish_impl {
         (input, script)
     }
 
-    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
         use std::os::unix::ffi::OsStringExt;
         // Unlike many/most other shells, `echo` is safe here because backslash
@@ -166,7 +163,6 @@ mod fish_impl {
         (resources::UTF8_SAMPLE.into(), script)
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_roundtrip_utf8_full() {
         use std::os::unix::ffi::OsStringExt;
@@ -190,7 +186,6 @@ mod fish_impl {
         }
     }
 
-    #[cfg(unix)]
     #[test]
     /// IIRC, this caught bugs not found by `test_roundtrip_utf8_full`, and it
     /// was much easier to figure out what the failures meant. For now it stays!

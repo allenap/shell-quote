@@ -105,7 +105,6 @@ mod sh_impl {
 
     type InvokeShell = fn(&Path, &OsStr) -> Result<Output>;
 
-    #[cfg(unix)]
     #[test_matrix(
         (script_bytes,
          script_text),
@@ -126,7 +125,6 @@ mod sh_impl {
         }
     }
 
-    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
         use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
@@ -143,7 +141,6 @@ mod sh_impl {
         (input, script)
     }
 
-    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
         use std::os::unix::ffi::OsStringExt;
         // NOTE: Do NOT use `echo` here; in most/all shells it interprets
@@ -158,7 +155,6 @@ mod sh_impl {
         (input, script)
     }
 
-    #[cfg(unix)]
     #[test_matrix(
         (("sh", invoke_shell),
          ("dash", invoke_shell),

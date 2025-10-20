@@ -176,19 +176,15 @@ impl<'a> From<&'a String> for Quotable<'a> {
     }
 }
 
-#[cfg(unix)]
 impl<'a> From<&'a OsStr> for Quotable<'a> {
     fn from(source: &'a OsStr) -> Quotable<'a> {
-        use std::os::unix::ffi::OsStrExt;
-        source.as_bytes().into()
+        source.as_encoded_bytes().into()
     }
 }
 
-#[cfg(unix)]
 impl<'a> From<&'a OsString> for Quotable<'a> {
     fn from(source: &'a OsString) -> Quotable<'a> {
-        use std::os::unix::ffi::OsStrExt;
-        source.as_bytes().into()
+        source.as_encoded_bytes().into()
     }
 }
 
@@ -208,14 +204,12 @@ impl<'a> From<&'a bstr::BString> for Quotable<'a> {
     }
 }
 
-#[cfg(unix)]
 impl<'a> From<&'a Path> for Quotable<'a> {
     fn from(source: &'a Path) -> Quotable<'a> {
         source.as_os_str().into()
     }
 }
 
-#[cfg(unix)]
 impl<'a> From<&'a PathBuf> for Quotable<'a> {
     fn from(source: &'a PathBuf) -> Quotable<'a> {
         source.as_os_str().into()
