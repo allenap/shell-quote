@@ -53,12 +53,11 @@ impl QuoteInto<String> for Fish {
     }
 }
 
-#[cfg(unix)]
 impl QuoteInto<std::ffi::OsString> for Fish {
     fn quote_into<'q, S: Into<Quotable<'q>>>(s: S, out: &mut std::ffi::OsString) {
-        use std::os::unix::ffi::OsStringExt;
         let s = Self::quote_vec(s);
-        let s = std::ffi::OsString::from_vec(s);
+        // SAFETY: `Fish::quote_vec` produces UTF-8.
+        let s = unsafe { std::ffi::OsString::from_encoded_bytes_unchecked(s) };
         out.push(s);
     }
 }

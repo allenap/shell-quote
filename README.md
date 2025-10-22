@@ -57,7 +57,7 @@ and produce output as (or push into) the following types:
 - [`String`] (for shells that support it, i.e. not [`Sh`]/[`Dash`])
 - [`bstr::BString`]
 - [`Vec<u8>`]
-- [`OsString`] (on UNIX)
+- [`OsString`] (except for [`Sh`])
 
 Inspired by the Haskell [shell-escape][] package.
 

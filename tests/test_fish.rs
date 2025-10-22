@@ -128,48 +128,41 @@ mod fish_impl {
         assert_eq!(buffer, b"-_'=/,.+'");
     }
 
-    #[cfg(unix)]
     #[test_matrix((script_bytes, script_text))]
     fn test_roundtrip(prepare: fn() -> (OsString, OsString)) {
-        use std::os::unix::ffi::OsStringExt;
         let (input, script) = prepare();
         // Test with every version of `fish` we find on `PATH`.
         for bin in find_bins("fish") {
             let output = invoke_shell(&bin, &script).unwrap();
-            let result = OsString::from_vec(output.stdout);
+            let result = unsafe { OsString::from_encoded_bytes_unchecked(output.stdout) };
             assert_eq!(result, input);
         }
     }
 
-    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
-        use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
-        let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
+        let input: OsString =
+            unsafe { OsString::from_encoded_bytes_unchecked((1..=u8::MAX).collect()) };
         // Unlike many/most other shells, `echo` is safe here because backslash
         // escapes are _not_ interpreted by default.
         let mut script = b"echo -n -- ".to_vec();
-        Fish::quote_into_vec(input.as_bytes(), &mut script);
-        let script = OsString::from_vec(script);
+        Fish::quote_into_vec(input.as_encoded_bytes(), &mut script);
+        let script = unsafe { OsString::from_encoded_bytes_unchecked(script) };
         (input, script)
     }
 
-    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
-        use std::os::unix::ffi::OsStringExt;
         // Unlike many/most other shells, `echo` is safe here because backslash
         // escapes are _not_ interpreted by default.
         let mut script = b"echo -n -- ".to_vec();
         Fish::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
-        let script = OsString::from_vec(script);
+        let script = unsafe { OsString::from_encoded_bytes_unchecked(script) };
         (resources::UTF8_SAMPLE.into(), script)
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_roundtrip_utf8_full() {
-        use std::os::unix::ffi::OsStringExt;
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins("fish") {
             let version = super::fish_version(&bin);
@@ -182,20 +175,18 @@ mod fish_impl {
                 let input: String = String::from_iter(chunk);
                 let mut script = b"printf %s ".to_vec();
                 Fish::quote_into_vec(&input, &mut script);
-                let script = OsString::from_vec(script);
+                let script = unsafe { OsString::from_encoded_bytes_unchecked(script) };
                 let output = invoke_shell(&bin, &script).unwrap();
-                let observed = OsString::from_vec(output.stdout);
+                let observed = unsafe { OsString::from_encoded_bytes_unchecked(output.stdout) };
                 assert_eq!(observed.into_string(), Ok(input));
             }
         }
     }
 
-    #[cfg(unix)]
     #[test]
     /// IIRC, this caught bugs not found by `test_roundtrip_utf8_full`, and it
     /// was much easier to figure out what the failures meant. For now it stays!
     fn test_roundtrip_utf8_full_char_by_char() {
-        use std::os::unix::ffi::OsStringExt;
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins("fish") {
             let version = super::fish_version(&bin);
@@ -205,14 +196,16 @@ mod fish_impl {
             }
             // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
             for chunk in utf8.chunks(2usize.pow(12)) {
-                let script = OsString::from_vec(chunk.iter().fold(
-                    b"printf '%s\\0'".to_vec(),
-                    |mut script, ch| {
-                        script.push(b' ');
-                        Fish::quote_into_vec(&ch.to_string(), &mut script);
-                        script
-                    },
-                ));
+                let script = unsafe {
+                    OsString::from_encoded_bytes_unchecked(chunk.iter().fold(
+                        b"printf '%s\\0'".to_vec(),
+                        |mut script, ch| {
+                            script.push(b' ');
+                            Fish::quote_into_vec(&ch.to_string(), &mut script);
+                            script
+                        },
+                    ))
+                };
 
                 let output = invoke_shell(&bin, &script).unwrap();
                 let observed = output.stdout.split(|ch| *ch == 0).filter(|s| !s.is_empty());
@@ -242,12 +235,9 @@ mod fish_quote_ext {
         assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_os_string_push_quoted_with_fish() {
-        use std::ffi::OsString;
-
-        let mut buffer: OsString = "Hello, ".into();
+        let mut buffer: std::ffi::OsString = "Hello, ".into();
         buffer.push_quoted(Fish, "World, Bob, !@#$%^&*(){}[]");
         let string = buffer.into_string().unwrap(); // -> test failures are more readable.
         assert_eq!(string, "Hello, World,' Bob, !@#$%^&*(){}[]'");
