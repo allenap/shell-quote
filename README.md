@@ -49,7 +49,7 @@ It can take as input many different string and byte string types:
 - [`&str`] and [`String`]
 - [`&bstr::BStr`][`bstr::BStr`] and [`bstr::BString`]
 - [`&[u8]`][`slice`] and [`Vec<u8>`]
-- [`&OsStr`][`OsStr`] and [`OsString`] (on UNIX)
+- [`&OsStr`][`OsStr`] and [`OsString`]
 - [`&Path`][`Path`] and [`PathBuf`]
 
 and produce output as (or push into) the following types:
@@ -57,7 +57,7 @@ and produce output as (or push into) the following types:
 - [`String`] (for shells that support it, i.e. not [`Sh`]/[`Dash`])
 - [`bstr::BString`]
 - [`Vec<u8>`]
-- [`OsString`] (on UNIX)
+- [`OsString`] (except for [`Sh`])
 
 Inspired by the Haskell [shell-escape][] package.
 

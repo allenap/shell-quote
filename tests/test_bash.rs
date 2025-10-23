@@ -81,41 +81,36 @@ mod bash_impl {
         assert_eq!(buffer, b"$'-_=/,.+'");
     }
 
-    #[cfg(unix)]
     #[test_matrix(
         (script_bytes, script_text),
         ("bash", "zsh")
     )]
     fn test_roundtrip(prepare: fn() -> (OsString, OsString), shell: &str) {
-        use std::os::unix::ffi::OsStringExt;
         let (input, script) = prepare();
         for bin in find_bins(shell) {
             let output = invoke_shell(&bin, &script).unwrap();
-            let result = OsString::from_vec(output.stdout);
+            let result = unsafe { OsString::from_encoded_bytes_unchecked(output.stdout) };
             assert_eq!(result, input);
         }
     }
 
-    #[cfg(unix)]
     fn script_bytes() -> (OsString, OsString) {
-        use std::os::unix::ffi::{OsStrExt, OsStringExt};
         // It doesn't seem possible to roundtrip NUL, probably because it is the
         // string terminator character in C.
-        let input: OsString = OsString::from_vec((1..=u8::MAX).collect());
+        let input: OsString =
+            unsafe { OsString::from_encoded_bytes_unchecked((1..=u8::MAX).collect()) };
         // NOTE: Do NOT use `echo` here; in most/all shells it interprets
         // escapes with no way to disable that behaviour (unlike the `echo`
         // builtin in Bash, for example, which accepts a `-E` flag). Using
         // `printf %s` seems to do the right thing in most shells, i.e. it does
         // not interpret the arguments in any way.
         let mut script = b"printf %s ".to_vec();
-        Bash::quote_into_vec(input.as_bytes(), &mut script);
-        let script = OsString::from_vec(script);
+        Bash::quote_into_vec(input.as_encoded_bytes(), &mut script);
+        let script = unsafe { OsString::from_encoded_bytes_unchecked(script) };
         (input, script)
     }
 
-    #[cfg(unix)]
     fn script_text() -> (OsString, OsString) {
-        use std::os::unix::ffi::OsStringExt;
         // NOTE: Do NOT use `echo` here; in most/all shells it interprets
         // escapes with no way to disable that behaviour (unlike the `echo`
         // builtin in Bash, for example, which accepts a `-E` flag). Using
@@ -123,14 +118,12 @@ mod bash_impl {
         // not interpret the arguments in any way.
         let mut script = b"printf %s ".to_vec();
         Bash::quote_into_vec(resources::UTF8_SAMPLE, &mut script);
-        let script = OsString::from_vec(script);
+        let script = unsafe { OsString::from_encoded_bytes_unchecked(script) };
         (resources::UTF8_SAMPLE.into(), script)
     }
 
-    #[cfg(unix)]
     #[test_matrix(("bash", "zsh"))]
     fn test_roundtrip_utf8_full(shell: &str) {
-        use std::os::unix::ffi::OsStringExt;
         let utf8: Vec<_> = ('\x01'..=char::MAX).collect(); // Not including NUL.
         for bin in find_bins(shell) {
             // Chunk to avoid over-length arguments (see`getconf ARG_MAX`).
@@ -138,9 +131,9 @@ mod bash_impl {
                 let input: String = String::from_iter(chunk);
                 let mut script = b"printf %s ".to_vec();
                 Bash::quote_into_vec(&input, &mut script);
-                let script = OsString::from_vec(script);
+                let script = unsafe { OsString::from_encoded_bytes_unchecked(script) };
                 let output = invoke_shell(&bin, &script).unwrap();
-                let observed = OsString::from_vec(output.stdout);
+                let observed = unsafe { OsString::from_encoded_bytes_unchecked(output.stdout) };
                 assert_eq!(observed.into_string(), Ok(input));
             }
         }
@@ -160,12 +153,9 @@ mod bash_quote_ext {
         assert_eq!(string, "Hello, $'World, Bob, !@#$%^&*(){}[]'");
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_os_string_push_quoted_with_bash() {
-        use std::ffi::OsString;
-
-        let mut buffer: OsString = "Hello, ".into();
+        let mut buffer: std::ffi::OsString = "Hello, ".into();
         buffer.push_quoted(Bash, "World, Bob, !@#$%^&*(){}[]");
         let string = buffer.into_string().unwrap(); // -> test failures are more readable.
         assert_eq!(string, "Hello, $'World, Bob, !@#$%^&*(){}[]'");
