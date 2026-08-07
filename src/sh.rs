@@ -24,6 +24,14 @@ use crate::{ascii::Char, Quotable, QuoteInto};
 /// Quoted/escaped strings produced by [`Sh`] also work in Bash, Dash, and Z
 /// Shell.
 ///
+/// One caveat comes along with that reach. A word beginning with `%` is a job
+/// specification in Bash, and no quoting prevents it, so `Sh::quote_vec("%1")`
+/// yields `'%1'` which Bash still reads as `fg %1` when it lands in command
+/// position. Dash has no such notion and runs the command; Z Shell tests the
+/// literal token rather than its value, so there the quoting does its job. The
+/// warning on [`Bash`][`crate::Bash`] has the detail. As an argument, rather
+/// than as a command name, `%` is unremarkable in all three.
+///
 /// The quoted/escaped strings it produces are different to those coming from
 /// [`Bash`][`crate::Bash`] or its alias [`Zsh`][`crate::Zsh`]. Those strings
 /// won't work in a pure `/bin/sh` shell like Dash, but they are better for
