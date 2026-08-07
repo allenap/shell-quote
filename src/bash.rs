@@ -8,7 +8,7 @@ use crate::{Quotable, QuoteInto};
 ///
 /// Quoted/escaped strings produced by [`Bash`] work in both Bash and Z Shell.
 ///
-/// # ⚠️ Warning
+/// # ⚠️ Warning regarding `NUL`
 ///
 /// It is _possible_ to encode NUL in a Bash string, but Bash appears to then
 /// truncate the rest of the string after that point **or** sometimes it filters
@@ -21,6 +21,48 @@ use crate::{Quotable, QuoteInto};
 /// stream.
 ///
 /// [modified-utf-8]: https://en.wikipedia.org/wiki/UTF-8#Modified_UTF-8
+///
+/// # ⚠️ Warning regarding `%` and job control in Bash
+///
+/// A word beginning with `%` **cannot be made safe** to use as a **command
+/// name** in Bash, by this crate or by any other means. In command position
+/// Bash reads such a word as a [job specification][job-control]: `%1` on its
+/// own is shorthand for `fg %1`.
+///
+/// Quoting does not prevent it, because Bash tests the word's _value_, after
+/// expansion and quote removal. Every one of these runs `fg`:
+///
+/// ```bash
+/// %1      '%1'      "%1"      $'%1'      \%1      ""%1
+/// ```
+///
+/// Nor is it conditional on job control being enabled. Bash rewrites the word
+/// either way; all that changes is which complaint you get, `fg: no job
+/// control` or `fg: %1: no such job`. It behaves this same way with job control
+/// off, with `set -m`, with `set +m`, under `--posix`, and in Bash 3.2 as
+/// shipped by Apple. Put an executable named `%1` on `PATH` and Bash will not
+/// run it, though it will run it happily by an explicit path.
+///
+/// It is the first character that matters, and only the first: `%1`, `%foo`,
+/// `%`, `%%`, `%+`, `%-`, and `%?x` are all intercepted, while `a%1` is an
+/// ordinary command name.
+///
+/// Z Shell differs: it tests the literal token, so there quoting _does_ prevent
+/// it, and all of the above but the first are ordinary command names. This
+/// crate quotes `%` unconditionally, which is what Z Shell needs, and is at
+/// worst harmless in Bash.
+///
+/// Keep it in proportion, though: this bites only in command position. As an
+/// **argument** – which is what this crate is mostly used for – `%` is an
+/// ordinary character in both shells, and `printf %s $'%1'` prints `%1` as you
+/// would expect.
+///
+/// If you are interpolating an untrusted string into command position, quoting
+/// is not sufficient protection in any case; prefer to invoke a known command
+/// and pass the string as an argument.
+///
+/// [job-control]:
+///     https://www.gnu.org/software/bash/manual/html_node/Job-Control-Basics.html
 ///
 /// # Notes
 ///
