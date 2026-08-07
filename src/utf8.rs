@@ -55,11 +55,20 @@ impl Char {
                 b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => PrintableInert(ascii),
                 b',' | b'.' | b'/' | b'_' | b'-' => PrintableInert(ascii),
 
+                // ASCII punctuation which is inert wherever it lands in a word,
+                // in every shell this crate supports. See the equivalent arm in
+                // [`crate::ascii`] for how this was established, and for why
+                // `%` and `=` are not among them.
+                b':' | b'@' | b'+' => PrintableInert(ascii),
+
                 // ASCII punctuation which can have significance in the shell.
                 b'|' | b'&' | b';' | b'(' | b')' | b'<' | b'>' => Printable(ascii),
                 b' ' | b'?' | b'[' | b']' | b'{' | b'}' | b'`' => Printable(ascii),
-                b'~' | b'!' | b'$' | b'@' | b'+' | b'=' | b'*' => Printable(ascii),
-                b'%' | b'#' | b':' | b'^' => Printable(ascii),
+                b'~' | b'!' | b'$' | b'*' | b'#' | b'^' => Printable(ascii),
+
+                // These two look inert and are not; see the module
+                // documentation in [`crate::ascii`] for why.
+                b'%' | b'=' => Printable(ascii),
 
                 // UTF-8 sequences.
                 0x80..=0xff => Utf8(ch),

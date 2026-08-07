@@ -42,6 +42,25 @@ mod bash_impl {
         assert_eq!(Bash::quote_vec("Hello \r\n"), b"$'Hello \\r\\n'");
     }
 
+    /// `:`, `@`, and `+` are inert wherever they land in a word, so URLs and
+    /// the like are passed through untouched, i.e. ANSI-C quoting is not
+    /// applied when there is nothing to escape; see
+    /// <https://github.com/allenap/shell-quote/issues/42>.
+    #[test]
+    fn test_inert_punctuation_is_not_quoted() {
+        assert_eq!(
+            Bash::quote_vec("https://github.com/RazrFalcon/pico-args"),
+            b"https://github.com/RazrFalcon/pico-args"
+        );
+        assert_eq!(Bash::quote_vec("user@example.com"), b"user@example.com");
+        assert_eq!(Bash::quote_vec("1.2.3+build"), b"1.2.3+build");
+        assert_eq!(Bash::quote_vec(":@+"), b":@+");
+        // `%` and `=` are deliberately _not_ inert; see the note against them
+        // in `src/ascii.rs`.
+        assert_eq!(Bash::quote_vec("FOO=bar"), b"$'FOO=bar'");
+        assert_eq!(Bash::quote_vec("%1"), b"$'%1'");
+    }
+
     #[test]
     fn test_empty_string() {
         assert_eq!(Bash::quote_vec(""), b"''");
